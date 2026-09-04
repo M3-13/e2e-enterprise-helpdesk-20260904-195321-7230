@@ -1,13 +1,17 @@
 import os
+from datetime import UTC, datetime, timedelta
 
 import jwt
 from fastapi import Depends, HTTPException, Request
+from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
 from db import get_db
 from models import User
 
 ALGORITHM = "HS256"
+
+_pwd_context = CryptContext(schemes=["bcrypt"], bcrypt__ident="2b", deprecated="auto")
 
 
 def _jwt_secret() -> str:
@@ -53,12 +57,22 @@ def require_role(*roles: str):
 
 
 def hash_password(password: str) -> str:
-    raise NotImplementedError("auth ticket implements hash_password")
+    return _pwd_context.hash(password)
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    raise NotImplementedError("auth ticket implements verify_password")
+    try:
+        return _pwd_context.verify(plain_password, hashed_password)
+    except (ValueError, TypeError):
+        return False
 
 
 def create_access_token(user_id: int, role: str) -> str:
-    raise NotImplementedError("auth ticket implements create_access_token")
+    expire_minutes = int(os.environ.get("TOKEN_EXPIRE_MINUTES", "60"))
+    now = datetime.now(UTC)
+    payload = {
+        "sub": str(user_id),
+        "role": role,
+        "exp": now + timedelta(minutes=expire_minutes),
+    }
+    return jwt.encode(payload, _jwt_secret(), algorithm=ALGORITHM)
