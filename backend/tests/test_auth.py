@@ -143,3 +143,14 @@ def test_rate_limit_returns_429(client):
 def test_logout_returns_204(client):
     response = client.post("/api/auth/logout")
     assert response.status_code == 204
+
+
+def test_rate_limiter_cleanup_removes_expired_entries():
+    limiter = auth_router._RateLimiter(limit=5, window=60.0)
+    limiter._attempts["expired"] = [1000.0, 1001.0]
+    limiter._attempts["recent"] = [10000.0]
+    limiter._attempts["empty"] = []
+    limiter.cleanup(now=10000.0)
+    assert "expired" not in limiter._attempts
+    assert "empty" not in limiter._attempts
+    assert limiter._attempts["recent"] == [10000.0]
