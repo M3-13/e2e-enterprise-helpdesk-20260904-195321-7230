@@ -12,7 +12,7 @@ import models  # noqa: F401  # register models on Base.metadata
 from db import Base, get_db
 from main import app
 from models import Ticket, User
-from routers.export import CSV_HEADER
+from routers.export import CSV_HEADER, _sanitize_csv_cell
 from services import ticket_filters
 
 
@@ -200,3 +200,26 @@ def test_requester_only_exports_own_tickets(client, db_session):
 def test_export_requires_authentication(client):
     response = client.get("/api/tickets/export")
     assert response.status_code == 401
+
+
+def test_export_sanitizes_formula_injection(client, db_session):
+    db = db_session()
+    agent = _make_user(db, "agent1", role="agent")
+    _make_ticket(db, "=1+1", assignee_id=None, requester_id=agent.id)
+
+    response = client.get("/api/tickets/export", headers=_auth_headers(agent))
+
+    assert response.status_code == 200
+    rows = _parse_csv(response.text)
+    assert rows[0] == CSV_HEADER
+    data = rows[1]
+    assert data[1] == "'=1+1"
+
+
+def test_sanitize_csv_cell_prefixes_formula_triggers():
+    assert _sanitize_csv_cell("=1+1") == "'=1+1"
+    assert _sanitize_csv_cell("+cmd") == "'+cmd"
+    assert _sanitize_csv_cell("-2+2") == "'-2+2"
+    assert _sanitize_csv_cell("@SUM(A1)") == "'@SUM(A1)"
+    assert _sanitize_csv_cell("normal title") == "normal title"
+    assert _sanitize_csv_cell(None) == ""

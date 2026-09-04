@@ -37,14 +37,22 @@ def _iso(value: datetime | None) -> str:
     return "" if value is None else value.isoformat()
 
 
+def _sanitize_csv_cell(value: str | None) -> str:
+    if value is None:
+        return ""
+    if value.startswith(("=", "+", "-", "@")):
+        return "'" + value
+    return value
+
+
 def _ticket_row(ticket: Ticket, usernames: dict[int, str]) -> list[str]:
     assignee = usernames.get(ticket.assignee_id, "") if ticket.assignee_id is not None else ""
     requester = usernames.get(ticket.requester_id, "")
     return [
         str(ticket.id),
-        ticket.title,
-        ticket.description,
-        ticket.category,
+        _sanitize_csv_cell(ticket.title),
+        _sanitize_csv_cell(ticket.description),
+        _sanitize_csv_cell(ticket.category),
         ticket.priority,
         ticket.status,
         _iso(ticket.due_date),
