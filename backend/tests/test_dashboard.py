@@ -171,3 +171,41 @@ def test_dashboard_by_priority_counts_only_open(client, db_session):
         "high": 2,
         "critical": 0,
     }
+
+
+def test_dashboard_requester_sees_only_own_tickets(client, db_session):
+    user = User(username="u", email="u@example.com", password_hash="x", role="requester")
+    other = User(username="o", email="o@example.com", password_hash="x", role="requester")
+    db_session.add_all([user, other])
+    db_session.commit()
+
+    make_ticket(db_session, status="open", requester_id=user.id)
+    make_ticket(db_session, status="open", requester_id=other.id)
+    make_ticket(db_session, status="in_progress", requester_id=user.id)
+    make_ticket(db_session, status="closed", updated_at=today(), requester_id=user.id)
+    make_ticket(db_session, status="closed", updated_at=today(), requester_id=other.id)
+    make_ticket(db_session, status="open", priority="high", requester_id=user.id)
+    make_ticket(db_session, status="open", priority="high", requester_id=other.id)
+
+    response = client.get("/api/dashboard")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["open"] == 3
+    assert body["closed_today"] == 1
+    assert body["by_priority"]["high"] == 1
+
+
+def test_dashboard_agent_sees_global_totals(client, db_session):
+    agent = User(username="a", email="a@example.com", password_hash="x", role="agent")
+    other = User(username="o", email="o@example.com", password_hash="x", role="requester")
+    db_session.add_all([agent, other])
+    db_session.commit()
+
+    make_ticket(db_session, status="open", requester_id=agent.id)
+    make_ticket(db_session, status="open", requester_id=other.id)
+
+    response = client.get("/api/dashboard")
+
+    assert response.status_code == 200
+    assert response.json()["open"] == 2
