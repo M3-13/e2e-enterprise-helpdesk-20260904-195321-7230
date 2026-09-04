@@ -33,19 +33,27 @@ Die Anwendung startet unter `http://localhost:8000`, legt beim Start automatisch
 die SQLite-Datenbank an (`helpdesk.db`) und ist sofort einsatzbereit — ohne
 manuelle Migration oder externe Dienste.
 
+Vor dem Start muss `JWT_SECRET` gesetzt sein (zufällig, mindestens 32 Zeichen),
+sonst verweigert die Anwendung den Start.
+
 ## Umgebungsvariablen
 
 | Variable                | Zweck                                        | Default                    |
 | ----------------------- | -------------------------------------------- | -------------------------- |
 | `DATABASE_URL`          | Verbindungs-URL der Datenbank                | `sqlite:///./helpdesk.db`  |
-| `JWT_SECRET`            | Signierschlüssel für JWT-Tokens              | (wird pro Lauf generiert)  |
+| `JWT_SECRET`            | Signierschlüssel für JWT-Tokens              | (kein Default – verpflichtend, zufällig, mind. 32 Zeichen) |
+| `TOKEN_EXPIRE_MINUTES`  | Ablaufzeit der JWT-Tokens in Minuten         | `30`                       |
 | `BACKEND_CORS_ORIGINS`  | Komma-getrennte erlaubte CORS-Origins        | `http://localhost:5173`    |
 
-Ein generierter `JWT_SECRET` muss selbst gesetzt werden, z. B.:
+`JWT_SECRET` ist verpflichtend und muss zufällig generiert sowie mindestens 32
+Zeichen lang sein. Ein generierter Wert wird z. B. so gesetzt:
 
 ```bash
 $env:JWT_SECRET = (python -c "import secrets; print(secrets.token_hex(32))")
 ```
+
+Ohne ein gesetztes, mindestens 32 Zeichen langes `JWT_SECRET` startet die
+Anwendung nicht.
 
 ## REST-API
 
