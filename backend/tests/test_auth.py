@@ -2,33 +2,50 @@ import os
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 
 import routers.auth as auth_router
 from auth import hash_password
-from db import SessionLocal, create_all
+from db import Base, get_db
 from main import app
 from models import User
 
 os.environ.setdefault("JWT_SECRET", "test-secret-key-for-auth-tests-0123456789")
 
-_TEST_USERNAMES = ["alice", "bob", "carol", "dave", "erin", "frank"]
+
+@pytest.fixture()
+def session_factory():
+    engine = create_engine(
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    Base.metadata.create_all(bind=engine)
+    factory = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+    yield factory
+    engine.dispose()
 
 
 @pytest.fixture(autouse=True)
-def _clean_state():
+def _reset_rate_limiters():
     auth_router._register_limiter.reset()
     auth_router._login_limiter.reset()
-    create_all()
-    with SessionLocal() as db:
-        db.query(User).filter(User.username.in_(_TEST_USERNAMES)).delete(synchronize_session=False)
-        db.commit()
     yield
 
 
-@pytest.fixture
-def client():
-    with TestClient(app) as c:
-        yield c
+@pytest.fixture()
+def client(session_factory, monkeypatch):
+    def override_get_db():
+        db = session_factory()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    monkeypatch.setitem(app.dependency_overrides, get_db, override_get_db)
+    yield TestClient(app)
 
 
 def test_register_returns_201(client):
@@ -79,19 +96,19 @@ def test_duplicate_registration_returns_409(client):
     assert response.status_code == 409
 
 
-def test_stored_password_has_bcrypt_prefix(client):
+def test_stored_password_has_bcrypt_prefix(client, session_factory):
     client.post(
         "/api/auth/register",
         json={"username": "erin", "email": "erin@example.com", "password": "secret123"},
     )
-    with SessionLocal() as db:
+    with session_factory() as db:
         user = db.query(User).filter(User.username == "erin").first()
         assert user is not None
         assert user.password_hash.startswith("$2b$")
 
 
-def test_disabled_user_returns_403(client):
-    with SessionLocal() as db:
+def test_disabled_user_returns_403(client, session_factory):
+    with session_factory() as db:
         user = User(
             username="frank",
             email="frank@example.com",
