@@ -23,4 +23,18 @@ describe('ImprintPage', () => {
       screen.getByRole('heading', { name: 'Kontakt' }),
     ).toBeInTheDocument()
   })
+
+  it('enthält keine Platzhalter', () => {
+    render(<ImprintPage />)
+
+    expect(screen.queryByText(/Musterstraße/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Musterstadt/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/kontakt@helpdesk\.example/)).not.toBeInTheDocument()
+  })
+
+  it('benennt vertretungsberechtigte Personen', () => {
+    render(<ImprintPage />)
+
+    expect(screen.getAllByText(/Markus Brandt/).length).toBeGreaterThan(0)
+  })
 })
