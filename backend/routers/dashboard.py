@@ -25,12 +25,22 @@ def dashboard(
 ) -> dict:
     today_start = _today_start()
 
-    open_count = db.query(func.count(Ticket.id)).filter(Ticket.status != "closed").scalar() or 0
+    base_filters = []
+    if current_user.role == "requester":
+        base_filters.append(Ticket.requester_id == current_user.id)
+
+    open_count = (
+        db.query(func.count(Ticket.id)).filter(Ticket.status != "closed", *base_filters).scalar()
+        or 0
+    )
 
     overdue_count = (
         db.query(func.count(Ticket.id))
         .filter(
-            Ticket.status != "closed", Ticket.due_date.isnot(None), Ticket.due_date < today_start
+            Ticket.status != "closed",
+            Ticket.due_date.isnot(None),
+            Ticket.due_date < today_start,
+            *base_filters,
         )
         .scalar()
         or 0
@@ -38,7 +48,7 @@ def dashboard(
 
     closed_today = (
         db.query(func.count(Ticket.id))
-        .filter(Ticket.status == "closed", Ticket.updated_at >= today_start)
+        .filter(Ticket.status == "closed", Ticket.updated_at >= today_start, *base_filters)
         .scalar()
         or 0
     )
@@ -46,7 +56,7 @@ def dashboard(
     by_priority = {
         priority: (
             db.query(func.count(Ticket.id))
-            .filter(Ticket.status != "closed", Ticket.priority == priority)
+            .filter(Ticket.status != "closed", Ticket.priority == priority, *base_filters)
             .scalar()
             or 0
         )
