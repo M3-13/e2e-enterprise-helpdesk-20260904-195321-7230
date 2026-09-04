@@ -43,12 +43,12 @@ def client(db_session, monkeypatch):
         yield c
 
 
-def _make_user(db, username: str) -> User:
+def _make_user(db, username: str, role: str = "requester") -> User:
     user = User(
         username=username,
         email=f"{username}@example.com",
         password_hash="x",
-        role="agent",
+        role=role,
         is_active=True,
     )
     db.add(user)
@@ -57,13 +57,20 @@ def _make_user(db, username: str) -> User:
     return user
 
 
-def _make_ticket(db, title: str, assignee_id: int | None, requester_id: int) -> Ticket:
+def _make_ticket(
+    db,
+    title: str,
+    assignee_id: int | None,
+    requester_id: int,
+    status: str = "open",
+    priority: str = "medium",
+) -> Ticket:
     ticket = Ticket(
         title=title,
         description=f"description of {title}",
         category="general",
-        priority="medium",
-        status="open",
+        priority=priority,
+        status=status,
         assignee_id=assignee_id,
         requester_id=requester_id,
     )
@@ -88,7 +95,7 @@ def _parse_csv(text: str) -> list[list[str]]:
 
 def test_export_returns_header_and_exactly_the_filtered_rows(client, db_session, monkeypatch):
     db = db_session()
-    agent = _make_user(db, "agent1")
+    agent = _make_user(db, "agent1", role="agent")
     requester = _make_user(db, "requester1")
     open_ticket = _make_ticket(db, "open ticket", assignee_id=agent.id, requester_id=requester.id)
     _make_ticket(db, "other ticket", assignee_id=None, requester_id=requester.id)
@@ -147,6 +154,47 @@ def test_export_forwards_filters_to_build_ticket_query(client, db_session, monke
     assert received["status"] == "open"
     assert received["priority"] == "high"
     assert received["assignee_id"] == 7
+    assert received["requester_id"] == requester.id
+
+
+def test_export_filters_actual_db_rows(client, db_session):
+    db = db_session()
+    agent = _make_user(db, "agent1", role="agent")
+
+    open_high = _make_ticket(db, "open high", agent.id, agent.id, status="open", priority="high")
+    _make_ticket(db, "open low", agent.id, agent.id, status="open", priority="low")
+    _make_ticket(db, "closed high", agent.id, agent.id, status="closed", priority="high")
+
+    response = client.get(
+        "/api/tickets/export",
+        headers=_auth_headers(agent),
+        params={"status": "open", "priority": "high"},
+    )
+
+    assert response.status_code == 200
+    rows = _parse_csv(response.text)
+    assert rows[0] == CSV_HEADER
+    data_rows = rows[1:]
+    assert [r[0] for r in data_rows] == [str(open_high.id)]
+
+
+def test_requester_only_exports_own_tickets(client, db_session):
+    db = db_session()
+    agent = _make_user(db, "agent1", role="agent")
+    requester = _make_user(db, "requester1")
+    other = _make_user(db, "other")
+
+    own_a = _make_ticket(db, "own a", agent.id, requester.id)
+    own_b = _make_ticket(db, "own b", agent.id, requester.id)
+    _make_ticket(db, "foreign", agent.id, other.id)
+
+    response = client.get("/api/tickets/export", headers=_auth_headers(requester))
+
+    assert response.status_code == 200
+    rows = _parse_csv(response.text)
+    assert rows[0] == CSV_HEADER
+    data_rows = rows[1:]
+    assert sorted(r[0] for r in data_rows) == sorted([str(own_a.id), str(own_b.id)])
 
 
 def test_export_requires_authentication(client):

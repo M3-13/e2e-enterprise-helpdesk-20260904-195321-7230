@@ -73,6 +73,7 @@ def export_tickets(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> Response:
+    requester_id = current_user.id if current_user.role == "requester" else None
     items, _ = ticket_filters.build_ticket_query(
         db,
         search=search,
@@ -82,6 +83,7 @@ def export_tickets(
         sort=None,
         page=1,
         page_size=_EXPORT_ALL_PAGE_SIZE,
+        requester_id=requester_id,
     )
 
     usernames = _usernames(db, items)
