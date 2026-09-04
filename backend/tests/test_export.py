@@ -37,11 +37,10 @@ def client(db_session, monkeypatch):
         finally:
             db.close()
 
-    app.dependency_overrides[get_db] = override_get_db
+    monkeypatch.setitem(app.dependency_overrides, get_db, override_get_db)
     monkeypatch.setenv("JWT_SECRET", "test-secret-key-for-export-tests-1234567890")
     with TestClient(app) as c:
         yield c
-    app.dependency_overrides.clear()
 
 
 def _make_user(db, username: str) -> User:
