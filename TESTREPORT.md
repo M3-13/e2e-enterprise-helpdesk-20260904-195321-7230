@@ -1,0 +1,7 @@
+VERDICT: PASS
+
+Der Lauf ist durchgängig grün: Backend-`pytest` mit 63 bestandenen Tests (Exit 0), der API-Smoke aus `RUN.json` startet und `/api/health` antwortet mit HTTP 200. Das Frontend baut fehlerfrei (`npm run build` Exit 0), der Playwright-Smoke und die 8 Playwright-E2E-Tests bestehen; es treten keine Console-Fehler, Uncaught Exceptions oder Stacktraces auf.
+
+Die im Bericht sichtbaren `[net-fail]`-Zeilen mit `401`/`403` sind erwartete Autorisierungsantworten geschützter Endpunkte (AC-13) und werden im Companion-Backend-Log konsistent als solche beantwortet. Nach Registrierung und Anmeldung meldet der Bericht `session after sign-up + sign-in: ESTABLISHED`; die geschützten Routen werden anschließend erfolgreich geladen. Der abgebrochene Logout-Request (`[net-abort]`) ist unkritisch, da der Server laut Log mit `204 No Content` geantwortet hat.
+
+Die zentralen Akzeptanzkriterien sind durch die Testläufe belegt: Authentifizierung/Rollen, Ticketverwaltung, Kommentare, Änderungsprotokoll, Fälligkeiten/Überfällig, Dashboard, CSV-Export, Admin-Benutzerverwaltung, HTML-Escaping, Rate-Limiting, CORS, Datenschutz/Impressum und Verzicht auf Drittressourcen. Es wurden keine Produktfehler beobachtet.
