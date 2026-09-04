@@ -108,9 +108,12 @@ export default function TicketNewPage() {
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             aria-invalid={Boolean(fieldErrorsMap.title)}
+            aria-describedby={fieldErrorsMap.title ? 'ticket-title-error' : undefined}
           />
           {fieldErrorsMap.title && (
-            <span className={styles.fieldError}>{fieldErrorsMap.title}</span>
+            <span id="ticket-title-error" className={styles.fieldError}>
+              {fieldErrorsMap.title}
+            </span>
           )}
         </div>
 
@@ -124,9 +127,12 @@ export default function TicketNewPage() {
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             aria-invalid={Boolean(fieldErrorsMap.description)}
+            aria-describedby={fieldErrorsMap.description ? 'ticket-description-error' : undefined}
           />
           {fieldErrorsMap.description && (
-            <span className={styles.fieldError}>{fieldErrorsMap.description}</span>
+            <span id="ticket-description-error" className={styles.fieldError}>
+              {fieldErrorsMap.description}
+            </span>
           )}
         </div>
 
@@ -141,9 +147,12 @@ export default function TicketNewPage() {
             value={category}
             onChange={(e) => setCategory(e.target.value)}
             aria-invalid={Boolean(fieldErrorsMap.category)}
+            aria-describedby={fieldErrorsMap.category ? 'ticket-category-error' : undefined}
           />
           {fieldErrorsMap.category && (
-            <span className={styles.fieldError}>{fieldErrorsMap.category}</span>
+            <span id="ticket-category-error" className={styles.fieldError}>
+              {fieldErrorsMap.category}
+            </span>
           )}
         </div>
 
@@ -157,6 +166,7 @@ export default function TicketNewPage() {
             value={priority}
             onChange={(e) => setPriority(e.target.value as TicketPriority)}
             aria-invalid={Boolean(fieldErrorsMap.priority)}
+            aria-describedby={fieldErrorsMap.priority ? 'ticket-priority-error' : undefined}
           >
             <option value="" disabled>
               Priorität wählen
@@ -168,7 +178,9 @@ export default function TicketNewPage() {
             ))}
           </select>
           {fieldErrorsMap.priority && (
-            <span className={styles.fieldError}>{fieldErrorsMap.priority}</span>
+            <span id="ticket-priority-error" className={styles.fieldError}>
+              {fieldErrorsMap.priority}
+            </span>
           )}
         </div>
 

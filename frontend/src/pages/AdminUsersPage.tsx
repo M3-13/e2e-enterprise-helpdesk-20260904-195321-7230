@@ -190,9 +190,12 @@ export default function AdminUsersPage() {
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               aria-invalid={Boolean(fieldErrorsMap.username)}
+              aria-describedby={fieldErrorsMap.username ? 'user-username-error' : undefined}
             />
             {fieldErrorsMap.username && (
-              <span className={styles.fieldError}>{fieldErrorsMap.username}</span>
+              <span id="user-username-error" className={styles.fieldError}>
+                {fieldErrorsMap.username}
+              </span>
             )}
           </div>
 
@@ -207,9 +210,12 @@ export default function AdminUsersPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               aria-invalid={Boolean(fieldErrorsMap.email)}
+              aria-describedby={fieldErrorsMap.email ? 'user-email-error' : undefined}
             />
             {fieldErrorsMap.email && (
-              <span className={styles.fieldError}>{fieldErrorsMap.email}</span>
+              <span id="user-email-error" className={styles.fieldError}>
+                {fieldErrorsMap.email}
+              </span>
             )}
           </div>
 
@@ -224,9 +230,12 @@ export default function AdminUsersPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               aria-invalid={Boolean(fieldErrorsMap.password)}
+              aria-describedby={fieldErrorsMap.password ? 'user-password-error' : undefined}
             />
             {fieldErrorsMap.password && (
-              <span className={styles.fieldError}>{fieldErrorsMap.password}</span>
+              <span id="user-password-error" className={styles.fieldError}>
+                {fieldErrorsMap.password}
+              </span>
             )}
           </div>
 
