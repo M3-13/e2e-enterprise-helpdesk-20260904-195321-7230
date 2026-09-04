@@ -22,17 +22,31 @@ class _RateLimiter:
         self._limit = limit
         self._window = window
         self._attempts: dict[str, list[float]] = defaultdict(list)
+        self._last_cleanup = time.monotonic()
+
+    def cleanup(self, now: float | None = None) -> None:
+        if now is None:
+            now = time.monotonic()
+        cutoff = now - self._window
+        for key in list(self._attempts.keys()):
+            self._attempts[key] = [t for t in self._attempts[key] if t > cutoff]
+            if not self._attempts[key]:
+                del self._attempts[key]
 
     def check(self, key: str) -> None:
         now = time.monotonic()
         cutoff = now - self._window
         self._attempts[key] = [t for t in self._attempts[key] if t > cutoff]
+        if now - self._last_cleanup >= self._window:
+            self.cleanup(now)
+            self._last_cleanup = now
         if len(self._attempts[key]) >= self._limit:
             raise HTTPException(status_code=429, detail="Too many attempts, try again later")
         self._attempts[key].append(now)
 
     def reset(self) -> None:
         self._attempts.clear()
+        self._last_cleanup = time.monotonic()
 
 
 _register_limiter = _RateLimiter(_RATE_LIMIT, _RATE_WINDOW_SECONDS)
