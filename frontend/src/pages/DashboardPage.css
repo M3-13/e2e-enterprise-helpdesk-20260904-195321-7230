@@ -11,7 +11,7 @@
   border: 1px solid var(--color-danger);
   border-left: 3px solid var(--color-danger);
   background-color: var(--color-danger_soft);
-  color: var(--color-danger);
+  color: var(--color-danger-text);
   border-radius: var(--radius-md);
   padding: var(--space-2) var(--space-3);
   max-width: 640px;
@@ -115,17 +115,17 @@
 
 .priority-badge--medium {
   background-color: var(--color-warning_soft);
-  color: var(--color-warning);
+  color: var(--color-warning-text);
 }
 
 .priority-badge--high {
   background-color: var(--color-danger_soft);
-  color: var(--color-danger);
+  color: var(--color-danger-text);
 }
 
 .priority-badge--critical {
   background-color: var(--color-danger_soft);
-  color: var(--color-danger);
+  color: var(--color-danger-text);
   font-weight: 600;
 }
 

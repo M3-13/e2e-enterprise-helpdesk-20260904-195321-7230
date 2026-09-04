@@ -13,6 +13,9 @@ export default function Layout() {
 
   return (
     <div className="app-shell">
+      <a href="#main-content" className="skip-link">
+        Zum Inhalt springen
+      </a>
       <header className="topnav">
         <div className="topnav__inner">
           <Link to="/" className="topnav__brand">
@@ -76,7 +79,7 @@ export default function Layout() {
         </div>
       </header>
 
-      <main className="content">
+      <main id="main-content" className="content">
         <Outlet />
       </main>
 

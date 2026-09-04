@@ -11,8 +11,10 @@
   --color-success_soft: #ecfdf3;
   --color-warning: #d97706;
   --color-warning_soft: #fff7ed;
+  --color-warning-text: #92400e;
   --color-danger: #dc2626;
   --color-danger_soft: #fef2f2;
+  --color-danger-text: #991b1b;
   --color-overlay: rgba(15, 23, 42, 0.5);
 
   --space-0: 4px;
@@ -69,6 +71,24 @@ a {
 
 a:hover {
   text-decoration: underline;
+}
+
+.skip-link {
+  position: absolute;
+  top: -9999px;
+  left: -9999px;
+  z-index: 100;
+  background-color: var(--color-surface);
+  color: var(--color-accent);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+}
+
+.skip-link:focus {
+  top: var(--space-2);
+  left: var(--space-2);
 }
 
 .app-shell {
@@ -332,7 +352,7 @@ textarea.input {
 
 .badge--status-in_progress {
   background-color: var(--color-warning_soft);
-  color: var(--color-warning);
+  color: var(--color-warning-text);
 }
 
 .badge--status-closed {
@@ -347,18 +367,18 @@ textarea.input {
 
 .badge--priority-medium {
   background-color: var(--color-warning_soft);
-  color: var(--color-warning);
+  color: var(--color-warning-text);
 }
 
 .badge--priority-high,
 .badge--priority-critical {
   background-color: var(--color-danger_soft);
-  color: var(--color-danger);
+  color: var(--color-danger-text);
 }
 
 .badge--overdue {
   background-color: var(--color-danger_soft);
-  color: var(--color-danger);
+  color: var(--color-danger-text);
   border: 1px solid var(--color-danger);
   font-weight: 600;
 }
@@ -375,7 +395,7 @@ textarea.input {
 .alert--error {
   background-color: var(--color-danger_soft);
   border-color: var(--color-danger);
-  color: var(--color-danger);
+  color: var(--color-danger-text);
 }
 
 .ticket-detail {
