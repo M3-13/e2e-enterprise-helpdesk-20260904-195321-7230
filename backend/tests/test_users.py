@@ -9,7 +9,7 @@ from sqlalchemy.pool import StaticPool
 
 from db import Base, get_db
 from main import app
-from models import User
+from models import AuditLog, Comment, Ticket, User
 
 TEST_SECRET = "test-users-secret-0123456789abcdefghijklmnopqrstuvwxyz"
 
@@ -169,3 +169,76 @@ def test_delete_me_removes_user_from_db(client, db_session):
 
     with db_session() as db:
         assert db.get(User, user_id) is None
+
+
+def test_export_me_returns_own_data_only(client, db_session):
+    me_id = _create_user(db_session, "exportme", "exportme@example.com", "requester")
+    other_id = _create_user(db_session, "other", "other@example.com", "agent")
+
+    with db_session() as db:
+        my_ticket = Ticket(
+            title="Mein Ticket",
+            description="eigene",
+            category="support",
+            priority="high",
+            status="open",
+            requester_id=me_id,
+        )
+        other_ticket = Ticket(
+            title="Fremdes Ticket",
+            description="fremd",
+            category="support",
+            priority="low",
+            status="open",
+            requester_id=other_id,
+        )
+        db.add_all([my_ticket, other_ticket])
+        db.commit()
+        db.refresh(my_ticket)
+        db.refresh(other_ticket)
+
+        my_comment = Comment(ticket_id=my_ticket.id, author_id=me_id, body="mein Kommentar")
+        other_comment = Comment(
+            ticket_id=other_ticket.id, author_id=other_id, body="fremder Kommentar"
+        )
+        my_audit = AuditLog(
+            ticket_id=my_ticket.id,
+            user_id=me_id,
+            field="status",
+            old_value="open",
+            new_value="closed",
+        )
+        other_audit = AuditLog(
+            ticket_id=other_ticket.id,
+            user_id=other_id,
+            field="status",
+            old_value="open",
+            new_value="closed",
+        )
+        db.add_all([my_comment, other_comment, my_audit, other_audit])
+        db.commit()
+        my_ticket_id = my_ticket.id
+        other_ticket_id = other_ticket.id
+
+    response = client.get("/api/users/me/export", headers=_auth_header(me_id))
+    assert response.status_code == 200
+    body = response.json()
+
+    assert body["user"]["username"] == "exportme"
+    assert body["user"]["email"] == "exportme@example.com"
+
+    ticket_ids = {t["id"] for t in body["tickets"]}
+    assert my_ticket_id in ticket_ids
+    assert other_ticket_id not in ticket_ids
+
+    comment_bodies = {c["body"] for c in body["comments"]}
+    assert "mein Kommentar" in comment_bodies
+    assert "fremder Kommentar" not in comment_bodies
+
+    assert len(body["audit_log"]) == 1
+    assert body["audit_log"][0]["user_id"] == me_id
+
+
+def test_export_me_requires_auth(client):
+    response = client.get("/api/users/me/export")
+    assert response.status_code == 401
