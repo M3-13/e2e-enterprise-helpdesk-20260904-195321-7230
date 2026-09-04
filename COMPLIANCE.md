@@ -1,335 +1,188 @@
 VERDICT: CHANGES_REQUESTED
 
-# Compliance- und Marktreifeprüfung: Enterprise Helpdesk (fullstack-python-web)
+# Compliance-Bericht: Enterprise Helpdesk (Fullstack-Python-Web)
 
-Geprüft wurde ausschließlich der sichtbare, zusammengeführte Projektstand. Der Bericht ist nach Regelungsbereichen gegliedert. Für jeden Befund werden Schweregrad und konkrete Abhilfe genannt.
-
----
-
-## 1. DSGVO / Datenschutz
-
-### 1.1 Kritisch — JWT-Secret hat einen unsicheren Standardwert
-**Fundstelle:** `backend/auth.py`, Funktion `_jwt_secret()`
-
-```python
-def _jwt_secret() -> str:
-    return os.environ.get("JWT_SECRET", "")
-```
-
-Wird `JWT_SECRET` nicht gesetzt, signiert und validiert der Dienst mit einem **leeren Secret**. Damit kann jede Person gültige JWT erzeugen und sich als Administrator ausgeben. Das ist ein erheblicher Zugriffsschutzmangel auf personenbezogene Daten.
-
-**Abhilfe:**
-- In `backend/auth.py` einen sicheren Fehlerfall erzwingen, z. B.:
-  ```python
-  def _jwt_secret() -> str:
-      secret = os.environ.get("JWT_SECRET", "")
-      if not secret:
-          raise RuntimeError("JWT_SECRET muss gesetzt sein (min. 32 Zeichen).")
-      return secret
-  ```
-- Zusätzlich in `backend/main.py` in der `lifespan`-Funktion eine Startprüfung vor `create_all()` durchführen, damit der Dienst ohne Secret nicht hochfährt.
-- In `README.md`/`DESIGN.md` dokumentieren, dass `JWT_SECRET` verpflichtend, zufällig und mindestens 32 Zeichen lang sein muss.
-
-Hinweis zur Vereinbarkeit: Die bestehenden Tests setzen `JWT_SECRET` bereits über `os.environ`. Die Maßnahme bricht daher weder Tests noch lokale Entwicklung, sofern in der Laufzeitumgebung ein Secret gesetzt wird.
+**Prüfumfang:** Vollständig gemergter Produktstand gemäß Sprint-Spezifikation und sichtbarem Quellcode. Geprüft wurden DSGVO, EU Cyber Resilience Act (CRA), EU AI Act, Pflichttexte/UI sowie Barrierefreiheit. Der Bericht nennt ausschließlich Befunde, die im Code oder den sichtbaren Dateien belegt sind.
 
 ---
 
-### 1.2 Hoch — Anwendungslogs können bei unbehandelten Fehlern personenbezogene Daten enthalten
-**Fundstelle:** `backend/main.py`, `unhandled_exception_handler`
+## 1. DSGVO
 
-```python
-logging.getLogger("app").exception("unhandled error on %s %s", request.method, request.url.path)
-```
+### 1.1 Widerspruch zwischen Datenschutzerklärung und technischer Umsetzung bei der Log-Löschung  
+**Severity: hoch**  
+**Dateien:** `frontend/src/pages/LegalPage.tsx` (Abschnitt 5) und `backend/main.py`  
+**Befund:** Die Datenschutzerklärung verspricht: „Protokolldaten (Logs): 30 Tage, danach automatische Löschung.“ Im Backend ist jedoch keine automatische Löschung, Rotation oder Retention-Implementierung vorhanden. `_configure_logging()` in `backend/main.py` leitet Logs lediglich an `StreamHandler` (stdout) weiter. Der Betreiber müsste die Aufbewahrungsfrist durch eine externe Infrastruktur (Container-Log-Rotation, Log-Management-System) erzwingen – eine solche Konfiguration ist aber nicht Teil des Produkts und wird auch nicht dokumentiert. Die Behauptung in der Datenschutzerklärung ist daher derzeit irreführend und rechtlich riskant.  
+**Konkrete Abhilfe:**  
+- In `backend/main.py` einen `TimedRotatingFileHandler` oder eine explizite Umgebungsvariable einführen, mit der die Aufbewahrungsdauer gesteuert wird (z. B. `LOG_RETENTION_DAYS=30`).  
+- Alternativ die Datenschutzerklärung in `frontend/src/pages/LegalPage.tsx` präzisieren, z. B.: „Die Löschung der Protokolldaten erfolgt durch die vom Betreiber konfigurierte Log-Rotationslösung; standardmäßig werden 30 Tage vorgehalten. Die Anwendung selbst schreibt Logs ausschließlich auf stdout und überlässt die Löschung der Plattform.“  
+- Wichtig: Die gewählte Maßnahme darf die Produktfunktion nicht beeinträchtigen – eine File-Rotation muss asynchron und ohne blockierende I/O-Optik erfolgen.
 
-Der volle Stacktrace einer Exception kann Ticketinhalte, Benutzernamen oder E-Mail-Adressen enthalten. `RedactPIIFilter` filtert ausschließlich E-Mail-Adressen, nicht aber Benutzernamen und Ticketinhalte. Die Akzeptanzkriterien verlangen ausdrücklich, dass Logs keine E-Mail-Adressen, Benutzernamen oder Ticketinhalte enthalten.
+### 1.2 Betroffenenrechte: Datenexport und Konto-Löschung sind nicht über die Weboberfläche erreichbar  
+**Severity: mittel**  
+**Dateien:** `frontend/src/pages/LegalPage.tsx` (Abschnitt 6), `backend/routers/users.py`, fehlende UI-Seite unter `frontend/src/pages/`  
+**Befund:** Die Datenschutzerklärung weist auf den „integrierten Datenexport“ hin und erweckt den Eindruck, der Nutzer könne seine Daten direkt in der Anwendung herunterladen. Tatsächlich existiert zwar der Endpunkt `GET /api/users/me/export`, aber im Frontend gibt es keine Seite oder Komponente, die diesen aufruft. Gleiches gilt für die Kontolöschung (`DELETE /api/users/me`). Die Rechte sind daher nicht niederschwellig ausübbar – insbesondere für nicht-technische Nutzer.  
+**Konkrete Abhilfe:**  
+- Neue Seite/Komponente „Mein Konto“ einführen (z. B. `frontend/src/pages/AccountPage.tsx`), die einen Button „Meine Daten exportieren“ (ruft `GET /api/users/me/export` auf und lädt die Antwort als Datei herunter) sowie einen Button „Konto löschen“ mit Bestätigungsdialog (`DELETE /api/users/me`) bereitstellt.  
+- Alternativ die Datenschutzerklärung anpassen: „Ihre eigenen Benutzerdaten können Sie per formloser Anfrage an datenschutz@… anfordern; die Löschung des Kontos erfolgt ebenfalls auf Anfrage.“  
+- Die API-Endpunkte sind bereits vorhanden und funktional – es muss nur die UI nachgerüstet werden.
 
-**Abhilfe:**
-- In `backend/main.py` den Exception-Log minimieren:
-  ```python
-  logging.getLogger("app").error(
-      "unhandled error on %s %s: %s",
-      request.method,
-      request.url.path,
-      type(exc).__name__,
-  )
-  ```
-- Kein `logger.exception(...)` mit Stacktrace in Produktion verwenden.
-- `RedactPIIFilter` kann beibehalten werden, ersetzt aber nicht die minimierte Log-Ausgabe.
+### 1.3 Berichtigungsrecht: Kein Self-Service für die Änderung eigener Daten  
+**Severity: mittel**  
+**Dateien:** `backend/routers/users.py`, `frontend/src/` (fehlende Profilseite)  
+**Befund:** Die Datenschutzerklärung nennt das Recht auf Berichtigung, jedoch kann ein Nutzer seine eigenen Stammdaten (z. B. E-Mail-Adresse, Passwort) nicht selbst ändern. Es gibt lediglich den Admin-Endpunkt `PATCH /api/users/{user_id}`. Eine eigenständige Wahrnehmung des Berichtigungsrechts ist ohne Administrator nicht möglich.  
+**Konkrete Abhilfe:**  
+- Endpoint `PATCH /api/users/me` implementieren, der nur die eigene E-Mail-Adresse (mit Validierung/Verifikation) und optional das Passwort (nach Bestätigung des alten Passworts) aktualisiert.  
+- Oder in der Datenschutzerklärung klarstellen, dass Berichtigungen formlos per E-Mail an den Datenschutzbeauftragten zu richten sind. Die zweite Variante ist einfacher, aber weniger komfortabel.
 
----
+### 1.4 User-Enumeration durch differenzierte Fehlermeldungen  
+**Severity: niedrig**  
+**Dateien:** `backend/routers/auth.py`  
+**Befund:**  
+- Registrierung: Bei doppeltem Benutzernamen oder doppelter E-Mail antwortet der Endpunkt mit `409` und `"Username or email already registered"`. Dies bestätigt die Existenz der jeweiligen E-Mail-Adresse/des Benutzernamens.  
+- Login: Für deaktivierte Benutzer wird `403` und `"Account disabled"` zurückgegeben, während falsche Anmeldedaten `401` mit `"Invalid username or password"` ergeben. Dadurch ist erkennbar, dass ein Konto existiert und deaktiviert wurde.  
+**Konkrete Abhilfe:**  
+- Login für deaktivierte Benutzer: Statt `403` ebenfalls `401` mit `"Invalid username or password"` zurückgeben (die Unterscheidung ist für den Nutzer nicht erforderlich und verringert Enumeration).  
+- Registrierung: Entweder generischere Fehlermeldung („Registrierung derzeit nicht möglich, bitte wenden Sie sich an den Administrator“) oder – falls Eindeutigkeitsprüfung unvermeidbar – die Information nur dann preisgeben, wenn die Anfrage von einer bereits authentifizierten Quelle stammt. In einem unternehmensinternen System ist das Risiko als niedrig einzustufen, sollte aber dokumentiert werden.
 
-### 1.3 Hoch — Datenschutzerklärung nennt unpassende Rechtsgrundlage für Beschäftigtendaten
-**Fundstelle:** `frontend/src/pages/LegalPage.tsx`, Abschnitt 3
-
-Dort werden ausschließlich Art. 6 Abs. 1 lit. b und lit. f DSGVO genannt. Für eine **unternehmensinterne** Helpdesk-Anwendung, mit der Beschäftigtendaten verarbeitet werden, ist regelmäßig **Art. 88 DSGVO in Verbindung mit § 26 BDSG** die vorrangige Rechtsgrundlage. Die aktuelle Formulierung ist daher rechtlich angreifbar.
-
-**Abhilfe:**
-- In `frontend/src/pages/LegalPage.tsx` den Abschnitt „Zwecke und Rechtsgrundlagen“ wie folgt ergänzen/umformulieren:
-  ```text
-  Rechtsgrundlagen sind Art. 88 DSGVO i. V. m. § 26 BDSG
-  (Verarbeitung von Beschäftigtendaten) sowie, soweit einschlägig,
-  Art. 6 Abs. 1 lit. b DSGVO (Vertragserfüllung) und Art. 6 Abs. 1
-  lit. f DSGVO (berechtigtes Interesse an einem funktionsfähigen
-  Ticketsystem und an der IT-Sicherheit).
-  ```
-
----
-
-### 1.4 Mittel — Datenschutzerklärung ist unvollständig
-**Fundstelle:** `frontend/src/pages/LegalPage.tsx`
-
-Es fehlen unter anderem:
-- konkrete Angaben zur Speicherung im Browser (`localStorage`: JWT-Sitzungstoken, Benutzerobjekt),
-- die Gültigkeitsdauer des JWT,
-- Angaben zur Speicherdauer von Logs,
-- die vollständige Benennung oder zumindest Erreichbarkeit des Verantwortlichen (nur Verweis auf das Impressum),
-- Hinweise auf mögliche Empfänger (z. B. IT-Administration) und auf das Bestehen einer Datenschutz-Folgenabschätzung, sofern erforderlich.
-
-**Abhilfe:**
-- `frontend/src/pages/LegalPage.tsx` um einen Abschnitt „Lokale Speicherung / Sitzungsdaten“ ergänzen.
-- Im Abschnitt „Verarbeitete Daten“ die JWT-Speicherung im Browser sowie die Token-Lebensdauer benennen.
-- Im Abschnitt „Speicherdauer“ konkrete Löschfristen oder Löschkonzepte angeben, z. B. „Logs werden nach 30 Tagen gelöscht“.
-- Die formlose Kontaktaufnahme über das Impressum beibehalten und zusätzlich eine konkrete E-Mail-Adresse für Datenschutzanfragen aufnehmen.
-
----
-
-### 1.5 Mittel — Datenminimierung: keine serverseitigen Längenbeschränkungen für Freitextfelder
-**Fundstellen:** `backend/schemas.py`, `TicketCreate`, `TicketUpdate`, `CommentCreate`
-
-Die Pydantic-Modelle definieren `title`, `description`, `category` und `body` als schlichte `str`-Felder ohne `max_length`. Nur die Datenbank begrenzt `title` auf 255 Zeichen. Dadurch können unverhältnismäßig große Datenmengen gespeichert und verarbeitet werden.
-
-**Abhilfe:**
-- In `backend/schemas.py` gezielte Längenbegrenzungen ergänzen, z. B.:
-  ```python
-  title: str = Field(max_length=255)
-  description: str = Field(max_length=5000)
-  category: str = Field(max_length=100)
-  body: str = Field(max_length=5000)
-  ```
-- `username` und `email` in `UserCreate`/`RegisterRequest` ebenfalls mit `max_length=255` bzw. `max_length=255` versehen.
-- Die Frontend-Seiten `TicketNewPage.tsx` und `LoginPage.tsx` sollten diese Limits optional zusätzlich clientseitig spiegeln; die serverseitige Prüfung ist maßgeblich.
-
----
-
-### 1.6 Mittel — Betroffenenrechte: nur Löschung, kein Auskunfts-/Exportmechanismus
-**Fundstelle:** `backend/routers/users.py`, `DELETE /api/users/me`; Datenschutzerklärung in `frontend/src/pages/LegalPage.tsx`
-
-Die Datenschutzerklärung verspricht Auskunft, Berichtigung, Löschung, Einschränkung, Datenübertragbarkeit und Widerspruch. Technisch implementiert ist jedoch nur die Löschung des eigenen Kontos (`DELETE /api/users/me`). Ein exportierbarer Datenauszug (Art. 15, Art. 20 DSGVO) fehlt.
-
-**Abhilfe:**
-- Neuen Endpunkt `GET /api/users/me/export` in `backend/routers/users.py` ergänzen, der die eigenen Stammdaten, Tickets, Kommentare und zugehörigen Audit-Einträge als strukturierte JSON-/CSV-Antwort zurückgibt.
-- In der Datenschutzerklärung den konkreten Weg zur Auskunft beschreiben, z. B. „Über die genannten Kontaktwege oder den integrierten Datenexport.“
-- Diese Funktion ergänzt das Löschrecht und bricht keine bestehende Funktion.
-
----
-
-### 1.7 Mittel — Rolleninkonsistenz im Dashboard
-**Fundstelle:** `backend/routers/dashboard.py`
-
-Das Dashboard liefert für **alle angemeldeten Benutzer** globale Kennzahlen (offene, überfällige, heute geschlossene Tickets) ohne Filter auf den jeweiligen Benutzer. Ein Melder sieht dadurch aggregierte Werte über fremde Tickets, obwohl er in der Ticketliste nur eigene Tickets einsehen darf.
-
-**Abhilfe:**
-- In `backend/routers/dashboard.py` für `role == "requester"` alle Zählabfragen auf `requester_id == current_user.id` einschränken.
-- Alternativ das Dashboard für Melder ausblenden und auf die Rolle `agent`/`admin` beschränken.
-- Die derzeitigen Tests in `frontend/src/pages/DashboardPage.test.tsx` bleiben funktionsfähig, da sie den API-Aufruf simulieren; die Backend-Tests in `backend/tests/test_dashboard.py` sind entsprechend um einen Requester-Fall zu ergänzen.
-
----
-
-### 1.8 Mittel — Passwortrichtlinie für Admin-Benutzeranlage fehlt serverseitig
-**Fundstelle:** `backend/routers/users.py`, `POST /api/users`
-
-Die Selbstregistrierung erzwingt mindestens 8 Zeichen (`backend/routers/auth.py`). Die Admin-Benutzeranlage verwendet `password: str` ohne Mindestlänge. Dadurch können Admins sehr schwache Passwörter setzen, was der sicheren Standardkonfiguration widerspricht.
-
-**Abhilfe:**
-- In `backend/users.py` vor dem Anlegen prüfen:
-  ```python
-  if len(payload.password) < 8:
-      raise HTTPException(status_code=422, detail="Passwort muss mindestens 8 Zeichen lang sein")
-  ```
-- Alternativ in `backend/schemas.py` das Feld `password` mit `min_length=8` versehen.
-- In `frontend/src/pages/AdminUsersPage.tsx` die bestehende Client-Prüfung beibehalten und die serverseitige Meldung übernehmen.
-
----
-
-### 1.9 Niedrig — Musterdaten im Impressum und in der Datenschutzerklärung
-**Fundstelle:** `frontend/src/pages/ImprintPage.tsx`
-
-Das Impressum enthält offensichtliche Platzhalter wie „Musterstraße 1“, „12345 Musterstadt“, „kontakt@helpdesk.example“. Ein Impressum mit Platzhaltern erfüllt die gesetzlichen Anforderungen an ein vollständiges und richtiges Anbieterkennzeichnungsimpressum nicht.
-
-**Abhilfe:**
-- In `frontend/src/pages/ImprintPage.tsx` echte Unternehmensdaten des Betreibers eintragen, einschließlich vertretungsberechtigter Personen, Kontakt-E-Mail und ggf. USt-IdNr., Handelsregisterangaben.
-- Dasselbe gilt für den Verantwortlichen in `frontend/src/pages/LegalPage.tsx`.
+### 1.5 Rate-Limiting nur im Prozessspeicher, keine Persistenz  
+**Severity: niedrig**  
+**Datei:** `backend/routers/auth.py`  
+**Befund:** Die Rate-Limiter (`_register_limiter`, `_login_limiter`) speichern Versuche in einem In-Memory-Dictionary. In einer produktiven Umgebung mit mehreren Backend-Prozessen oder Container-Instanzen greift diese Begrenzung nicht pro Client, sondern nur pro Prozess. Für eine einzelne Instanz (wie es die Default-Konfiguration suggeriert) ist sie ausreichend, verliert aber bei horizontaler Skalierung an Wirkung.  
+**Konkrete Abhilfe:**  
+- Persistente Rate-Limit-Backend (z. B. Redis) einführen oder – sofern das Produkt stets mit nur einem Prozess betrieben wird – dies in `README.md`/`COMPLIANCE.md` klarstellen.  
+- Mindestens dokumentieren, dass der Schutz nur bei Single-Instance-Betrieb vollständig ist.
 
 ---
 
 ## 2. EU Cyber Resilience Act (CRA)
 
-### 2.1 Hoch — Keine sichtbare SBOM und keine dokumentierte Sicherheitsbeschreibung
-**Fundstelle:** gesamtes Repo, insbesondere `backend/requirements.txt`, `frontend/package.json`, `README.md`, `DESIGN.md`
+### 2.1 Kein standardisiertes SBOM (Software Bill of Materials)  
+**Severity: hoch**  
+**Dateien:** `backend/requirements.txt`, `frontend/package-lock.json`, fehlende `sbom.json`/`sbom.cdx.xml`  
+**Befund:** Der CRA verlangt für Produkte mit digitalen Elementen die Bereitstellung eines SBOM, um Abhängigkeiten und Transparenz über die Lieferkette zu gewährleisten. Zwar sind `requirements.txt` und `package-lock.json` vorhanden, aber es fehlt eine standardisierte, maschinenlesbare SBOM (z. B. CycloneDX oder SPDX).  
+**Konkrete Abhilfe:**  
+- In die CI-Pipeline einen SBOM-Generator integrieren (z. B. `cyclonedx-bom` für Python und Nodes).  
+- Die erzeugte SBOM-Datei (z. B. `sbom.cdx.json`) im Repository ablegen und bei Releases mitliefern.  
+- Der Generator muss die installierten Versionen aus `package-lock.json` und `requirements.txt` exakt wiedergeben.
 
-Für ein Produkt mit digitalen Elementen verlangt der CRA unter anderem:
-- eine bekannte und nachvollziehbare Software-Stückliste (SBOM, z. B. CycloneDX/SPDX),
-- dokumentierte Sicherheitseigenschaften („Security by design/default“),
-- Angaben zur Behebung von Schwachstellen und zur Update-Fähigkeit.
+### 2.2 Kein sichtbarer Prozess für Schwachstellen-Scanning und Patch-Management  
+**Severity: mittel**  
+**Dateien:** `backend/requirements.txt`, `frontend/package.json`, `SECURITY.md` (Inhalt nicht vollständig einsehbar), CI-Konfiguration (nicht vollständig sichtbar)  
+**Befund:** Es ist nicht erkennbar, ob Abhängigkeiten automatisiert auf bekannte Schwachstellen geprüft werden (z. B. `pip-audit`, `npm audit`, Dependabot) und wie Updates eingespielt werden. Für den CRA muss ein definierter Prozess existieren, der Sicherheitsupdates zeitnah ermöglicht.  
+**Konkrete Abhilfe:**  
+- In `SECURITY.md` einen Abschnitt „Umgang mit Schwachstellen“ und „Supportzeitraum“ ergänzen, in dem beschrieben wird, wie Sicherheitslücken gemeldet, bewertet und behoben werden.  
+- In der CI einen automatischen Scan (z. B. `pip-audit`, `npm audit --audit-level=high`) einbauen und bei Funden den Build abbrechen.  
+- In `COMPLIANCE.md` oder `README.md` festhalten, dass Sicherheitsupdates innerhalb einer definierten Frist eingespielt werden.
 
-Im sichtbaren Projektstand sind weder eine SBOM noch eine ausdrückliche Security-Dokumentation vorhanden. Die Abhängigkeitsdateien sind zwar vorhanden, aber ohne sichtbare SBOM-Generierung.
+### 2.3 Dokumentation der Sicherheitseigenschaften nur unvollständig belegt  
+**Severity: mittel**  
+**Dateien:** `SECURITY.md`, `COMPLIANCE.md` (Inhalte nicht vollständig einsehbar)  
+**Befund:** Es existieren `SECURITY.md` und `COMPLIANCE.md`, was grundsätzlich positiv ist. Da die Inhalte hier nicht vollständig sichtbar sind, kann nicht bestätigt werden, ob sie alle CRA-Pflichtangaben (z. B. sichere Standardkonfiguration, Update-Fähigkeit, bekannte Einschränkungen, Supportzeitraum) abdecken.  
+**Konkrete Abhilfe:**  
+- `SECURITY.md` und `COMPLIANCE.md` ergänzen um:  
+  - Beschreibung der sicheren Standardkonfiguration (explizite CORS-Origins, Passwort-Hashing, JWT-Ablauf, Rate-Limiting).  
+  - Angabe des geplanten Supportzeitraums und des Prozesses für Sicherheitsupdates.  
+  - Kontaktadresse für die Meldung von Schwachstellen.  
+- Die genannten Dokumente im Repository dauerhaft aktuell halten.
 
-**Abhilfe:**
-- CI-Schritt für SBOM ergänzen, z. B. `cyclonedx-bom` oder `syft` für Backend und Frontend.
-- In `DESIGN.md` oder einer neu anzulegenden `SECURITY.md` dokumentieren:
-  - Sicherheitsannahmen,
-  - Update-/Patch-Prozess,
-  - Umgang mit Schwachstellenmeldungen,
-  - eingesetzte kryptografische Verfahren (bcrypt, HS256) und Gültigkeitsdauern.
-- In `backend/requirements.txt` und `frontend/package.json` die Abhängigkeiten versioniert oder mit nachvollziehbaren Lock-Dateien versehen.
-
----
-
-### 2.2 Hoch — Unsichere Standardwerte verletzen „Security by default“
-**Fundstellen:** `backend/auth.py`, `backend/main.py`
-
-Der leere `JWT_SECRET`-Standard (siehe DSGVO 1.1) ist zugleich ein CRA-Verstoß gegen sichere Standardkonfiguration. Zusätzlich sind die CORS-Methoden und -Header sehr weit geöffnet (`allow_methods=["*"]`, `allow_headers=["*"]`).
-
-**Abhilfe:**
-- `JWT_SECRET`-Startprüfung wie unter 1.1 beschrieben.
-- In `backend/main.py` `allow_methods` und `allow_headers` auf die tatsächlich benötigten Werte einschränken:
-  ```python
-  allow_methods=["GET", "POST", "PATCH", "DELETE"],
-  allow_headers=["Authorization", "Content-Type"],
-  ```
-- Sicherstellen, dass `BACKEND_CORS_ORIGINS` in Produktion nicht auf `*` gesetzt werden kann; dies ist bereits durch die aktuell gelesene Liste gewährleistet, sollte aber in Dokumentation und Deployment geprüft werden.
-
----
-
-### 2.3 Mittel — CSV-Export ist potenziell formel-injizierbar
-**Fundstelle:** `backend/routers/export.py`, `_ticket_row()`
-
-Titel, Beschreibung, Kategorie usw. werden unverändert in CSV geschrieben. Wenn ein Feld mit `=`, `+`, `-` oder `@` beginnt, kann dies in Tabellenkalkulationen als Formel interpretiert werden. Das ist ein bekanntes Sicherheitsrisiko beim CSV-Export.
-
-**Abhilfe:**
-- In `backend/routers/export.py` eine Funktion `_sanitize_csv_cell(value: str) -> str` ergänzen, die alle Zellen, die mit `=`, `+`, `-` oder `@` beginnen, mit einem Apostroph (`'`) präfixen.
-- Die `writer.writerow(...)`-Aufrufe auf diese Funktion umstellen.
-- Die bestehenden Export-Tests in `backend/tests/test_export.py` um einen Fall mit `=1+1`-Titel ergänzen.
-
----
-
-### 2.4 Mittel — JWT im localStorage erhöht das Schadenspotenzial bei XSS
-**Fundstelle:** `frontend/src/context/AuthContext.tsx`, `frontend/src/api/client.ts`
-
-Der JWT wird im `localStorage` gespeichert. Der Schutz gegen XSS ist im Frontend grundsätzlich vorhanden (React-Escaping, keine Drittressourcen), dennoch wäre ein durch XSS gestohlener Token bis zum Ablauf gültig. Für eine sicherere Standardkonfiguration sind HttpOnly-Cookies oder zumindest kurze Token-Lebensdauern zu bevorzugen.
-
-**Abhilfe:**
-- Übergang auf **HttpOnly-Cookies** für den Sitzungstoken in Betracht ziehen, sofern die API-Architektur dies zulässt.
-- Alternativ die Token-Gültigkeit über `TOKEN_EXPIRE_MINUTES` kurz halten (z. B. 15–30 Minuten) und einen Refresh-Mechanismus vorsehen.
-- `backend/auth.py` entsprechend erweitern, falls Cookies verwendet werden.
-- Diese Änderung muss die bestehenden Logins und API-Aufrufe konsistent abbilden; ein reiner Wechsel ohne Anpassung von `api/client.ts` würde das Produkt brechen, daher nur als durchdachte Migration umsetzen.
+### 2.4 JWT-Sitzungen nicht widerrufbar  
+**Severity: niedrig**  
+**Dateien:** `backend/auth.py`, `backend/routers/auth.py`  
+**Befund:** Das Logout (`POST /api/auth/logout`) entfernt den Token lediglich clientseitig. Ein einmal ausgestelltes JWT bleibt bis zum Ablauf der Gültigkeit (default 30 Minuten) verwendbar. In einer internen Anwendung mit kurzen Token-Laufzeiten ist das Risiko moderat, entspricht aber nicht dem Grundsatz „Security by default“, da ein gestohlenes Token nicht aktiv invalidiert werden kann.  
+**Konkrete Abhilfe:**  
+- Die standardmäßige Token-Laufzeit von 30 Minuten beibehalten oder sogar verkürzen.  
+- Optional eine serverseitige Token-Revocation-Liste oder Refresh-Token-Architektur einführen, sofern dies unter Berücksichtigung der bestehenden Architektur sinnvoll ist.  
+- Mindestens in `SECURITY.md` dokumentieren, dass ein Logout clientseitig ist und ein gestohlenes Token bis zu 30 Minuten gültig bleibt.
 
 ---
 
 ## 3. EU AI Act
 
-### 3.1 Kein Befund
-Im sichtbaren Code ist **keine KI-Funktion** enthalten. Es gibt keine automatisierte Entscheidungsfindung, kein Training und keine generative Komponente. Eine KI-Risikoklasse ist daher nicht zu bewerten. Sollte später ein KI-Modul ergänzt werden, sind Risikoklasse, Transparenz- und Kennzeichnungspflichten erneut zu prüfen.
+**Kein Befund.** Im sichtbaren Produkt sind keine KI-Funktionen oder KI-Komponenten enthalten. Der EU AI Act ist daher nicht anwendbar. Es werden weder KI-gestützte Entscheidungen getroffen noch Modelle trainiert oder eingesetzt.
 
 ---
 
-## 4. Pflichttexte und UI
+## 4. Pflichttexte & UI
 
-### 4.1 Hoch — Impressum mit Platzhaltern
-**Fundstelle:** `frontend/src/pages/ImprintPage.tsx`
+### 4.1 Impressum verweist auf veraltetes Gesetz (§ 5 TMG)  
+**Severity: mittel**  
+**Datei:** `frontend/src/pages/ImprintPage.tsx`  
+**Befund:** Die Überschrift lautet „Angaben gemäß § 5 TMG“. Das Telemediengesetz (TMG) wurde im Mai 2024 durch das Digitale-Dienste-Gesetz (DDG) abgelöst. Die Pflichtangabe muss sich auf § 5 DDG beziehen.  
+**Konkrete Abhilfe:**  
+- In `frontend/src/pages/ImprintPage.tsx` die Überschrift ändern zu: `Angaben gemäß § 5 DDG`.  
+- Alle sonstigen Inhalte (Haftung, Kontakt) sind inhaltlich ausreichend und bedürfen keiner Änderung.
 
-Wie unter DSGVO 1.9 beschrieben, ist das Impressum ohne reale Betreiberangaben nicht marktreif. Dies betrifft auch die Angaben „Die Geschäftsführung“ und die Platzhalter-Kontaktdaten.
+### 4.2 Datenschutzerklärung inkonsistent bei Log-Löschung und integriertem Datenexport  
+**Severity: mittel**  
+**Dateien:** `frontend/src/pages/LegalPage.tsx`  
+**Befund:**  
+- Die Datenschutzerklärung verspricht „automatische Löschung“ der Logs nach 30 Tagen (siehe DSGVO-Befund 1.1).  
+- Sie erwähnt einen „integrierten Datenexport“, der jedoch im Frontend nicht auffindbar ist (siehe DSGVO-Befund 1.2).  
+Beide Angaben sind derzeit nicht durch die Implementierung gedeckt und damit irreführend.  
+**Konkrete Abhilfe:**  
+- Entweder die technischen Funktionen nachrüsten (Log-Rotation, Self-Service-UI) oder den Text in `frontend/src/pages/LegalPage.tsx` anpassen, sodass er die Realität korrekt beschreibt.  
+- Die Datenschutzerklärung muss nach jeder Änderung erneut geprüft werden.
 
-**Abhilfe:**
-- `frontend/src/pages/ImprintPage.tsx` vollständig mit den echten Anbieterangaben befüllen.
-- Zusätzlich prüfen, ob eine Angabe nach § 5 TMG/DDG und ggf. § 18 MStV erforderlich ist; die Überschrift kann an die aktuelle Rechtslage (DDG) angepasst werden.
-
----
-
-### 4.2 Erfüllt — Fuß-Links Datenschutz und Impressum
-**Fundstelle:** `frontend/src/components/Layout.tsx`
-
-Die Fußzeile verlinkt `Datenschutz` und `Impressum` auf jeder Seite. Die Tests in `frontend/src/App.test.tsx` bestätigen dies. Dieser Teil der Akzeptanzkriterien ist erfüllt.
-
----
-
-## 5. Barrierefreiheit / WCAG / BITV / EAA
-
-### 5.1 Mittel — ARIA-Tabs für Anmelden/Registrieren unvollständig
-**Fundstelle:** `frontend/src/pages/LoginPage.tsx`
-
-Die Umschalter „Anmelden“ / „Registrieren“ verwenden `role="tablist"` und `role="tab"`, aber es fehlen:
-- zugehörige `role="tabpanel"`,
-- `aria-controls`,
-- `aria-labelledby` für Panels,
-- die erwartete Tastaturbedienung mit Pfeiltasten.
-
-**Abhilfe:**
-- Entweder die ARIA-Tabs vollständig implementieren (Tablist/Tab/Tabpanel mit `aria-controls`, `id` und Pfeiltasten-Navigation), oder
-- die Umschalter als einfache Buttons mit `aria-pressed` realisieren, was für einen Wechsel zwischen zwei Formularen semantisch einfacher und robuster ist.
-- Der sichtbare Text und die Funktion sollten unverändert bleiben.
+### 4.3 Footer-Links und Impressum/Datenschutz grundsätzlich vorhanden  
+**Severity: ohne Befund (positiv)**  
+**Dateien:** `frontend/src/components/Layout.tsx`, `frontend/src/pages/ImprintPage.tsx`, `frontend/src/pages/LegalPage.tsx`  
+**Erläuterung:** Die Fußzeile verlinkt auf jeder Seite zu „Datenschutz“ und „Impressum“. Die Seiten enthalten die erforderlichen Pflichtangaben (Verantwortlicher, Kontakt, Rechte, Rechtsgrundlagen). Ein Cookie-Consent-Banner ist nicht erforderlich, da keine Cookies oder Drittanbieter-Ressourcen eingesetzt werden. Dies erfüllt AC-18 und AC-19.
 
 ---
 
-### 5.2 Mittel — Feldbezogene Fehlermeldungen nicht konsistent verknüpft
-**Fundstellen:** `frontend/src/pages/LoginPage.tsx`, `frontend/src/pages/TicketNewPage.tsx`, `frontend/src/pages/AdminUsersPage.tsx`
+## 5. Barrierefreiheit (WCAG / BITV / EAA)
 
-Die Formularfelder nutzen `aria-invalid`, aber die Fehlertexte sind nicht über `aria-describedby` mit dem jeweiligen Eingabefeld verbunden. Für Screenreader-Nutzende ist der Bezug zwischen Feld und Fehlermeldung nicht eindeutig.
+### 5.1 Tabellenüberschriften ohne explizite Spalten-Zuordnung (`scope`)  
+**Severity: mittel**  
+**Dateien:** `frontend/src/pages/AdminUsersPage.tsx`, `frontend/src/pages/TicketListPage.tsx`  
+**Befund:** In den Tabellen werden `<th>`-Elemente verwendet, es fehlt jedoch durchgängig das `scope`-Attribut (z. B. `scope="col"` für Spaltenüberschriften). Screenreader können dadurch die Zuordnung von Kopfzeilen zu Datenzellen nicht immer korrekt interpretieren.  
+**Konkrete Abhilfe:**  
+- In beiden Dateien bei allen Spaltenüberschriften `<th scope="col">` ergänzen.  
+- Falls zeilenweise Kopfzellen existieren, `<th scope="row">` verwenden.  
+- Die Änderung ist rein deklarativ und beeinträchtigt die Funktionalität nicht.
 
-**Abhilfe:**
-- Jeder Fehlermeldung eine eindeutige `id` geben, z. B. `login-username-or-email-error`.
-- Am Eingabefeld ergänzen:
-  ```tsx
-  aria-describedby={fieldErrorsMap.username_or_email ? 'login-username-or-email-error' : undefined}
-  ```
-- Gleiches Muster in `TicketNewPage.tsx` und `AdminUsersPage.tsx` umsetzen.
+### 5.2 Farbkontraste potenziell unter WCAG AA  
+**Severity: mittel/niedrig**  
+**Dateien:** `frontend/src/styles/global.css`, `frontend/src/pages/DashboardPage.css`, `frontend/src/pages/TicketListPage.module.css`, `frontend/src/pages/AdminUsersPage.module.css`  
+**Befund:** Mehrere Farbkombinationen könnten den geforderten Kontrast von 4,5:1 für normalen Text bzw. 3:1 für große Texte unterschreiten. Beispiele:  
+- `--color-warning` (#d97706) auf weißem/Hell-Hintergrund.  
+- `--color-success` (#16a34a) auf weißem/Hell-Hintergrund.  
+- Einige Badges verwenden farbigen Text auf farbigem Hintergrund (z. B. `priority-badge--low` mit `#f3f4f6` Hintergrund und `#6b7280` Text).  
+Ohne automatisierte Prüfung (z. B. axe, Lighthouse) lässt sich die tatsächliche Kontrastverletzung nicht exakt beziffern, die Risiken sind jedoch offensichtlich.  
+**Konkrete Abhilfe:**  
+- Farbwerte in `frontend/src/styles/global.css` und den Komponenten-CSS-Dateien anpassen, sodass alle Texte und UI-Elemente den WCAG-AA-Kontrast erreichen.  
+- Beispielsweise `--color-warning` auf einen dunkleren Ton (#9a5b00) und `--color-success` auf einen dunkleren Ton (#116b2d) ändern; für Badges kontrastreiche Textfarben verwenden.  
+- Zusätzlich automatisierte Barrierefreiheitsprüfungen in die CI-Pipeline integrieren.
 
----
-
-### 5.3 Mittel — Skip-Link fehlt
-**Fundstelle:** `frontend/src/components/Layout.tsx`
-
-Eine Tastaturmöglichkeit, um die Navigation zu überspringen und direkt zum Hauptinhalt zu gelangen, ist nicht vorhanden. Dies ist eine gängige WCAG-Erwartung.
-
-**Abhilfe:**
-- In `frontend/src/components/Layout.tsx` direkt nach `<body>` bzw. am Anfang des Layouts einen Skip-Link ergänzen:
-  ```tsx
-  <a href="#main-content" className="skip-link">Zum Inhalt springen</a>
-  ```
-- Dem `<main>`-Element `id="main-content"` geben.
-- In `frontend/src/styles/global.css` die Skip-Link-Klasse visuell versteckt, aber per Tastatur erreichbar machen.
-
----
-
-### 5.4 Niedrig — Farbkontraste einzelner Status-/Warnhinweise möglicherweise unzureichend
-**Fundstellen:** `frontend/src/styles/global.css`, `frontend/src/pages/DashboardPage.css`
-
-Warn-/Statusfarben wie `--color-warning: #d97706` auf `--color-warning_soft: #fff7ed` oder `--color-danger: #dc2626` auf `--color-danger_soft: #fef2f2` könnten bei kleinem Text unter 4,5:1 liegen. Dies ist ohne konkreten Farbtest nicht genau bezifferbar, aber auffällig.
-
-**Abhilfe:**
-- Kontrastprüfung nach WCAG AA für alle Text-/Hintergrundkombinationen durchführen.
-- Ggf. dunklere Textfarben für Warn-/Fehlerhinweise festlegen, z. B. `#92400e` für Warnungen, `#991b1b` für Fehler.
+### 5.3 Positive Aspekte  
+**Dateien:** `frontend/src/components/Layout.tsx`, `frontend/src/pages/LoginPage.tsx`, diverse Komponenten  
+**Erläuterung:** Es sind bereits gute Grundlagen vorhanden:  
+- Skip-Link zum Hauptinhalt (`Zum Inhalt springen`, `href="#main-content"`).  
+- Semantische HTML-Elemente (`main`, `header`, `footer`, `nav`, `h1`/`h2`).  
+- Formularfelder mit `label` und `htmlFor`-Verknüpfung sowie `aria-invalid` und `aria-describedby` für Fehlermeldungen.  
+- Fehler- und Statusmeldungen mit `role="alert"` und `role="status"`.  
+- Tastaturbedienung des Anmelde-/Registrierungs-Toggles mit Pfeiltasten und `aria-pressed`.  
+- `lang="de"` im HTML-Tag.  
+Diese Aspekte erfüllen bereits wichtige WCAG-Kriterien und sollten beibehalten werden.
 
 ---
 
-## Fazit
+## Zusammenfassung der erforderlichen Änderungen (Priorisierung)
 
-Das Produkt erfüllt zentrale Akzeptanzkriterien:
-- Passwort-Hashing mit bcrypt ist vorhanden.
-- JWT-geschützte Endpunkte antworten mit 401/403.
-- XSS-relevante Freitextausgaben werden durch React-Escaping entschärft.
-- Rate-Limiting für Registrierung und Anmeldung existiert.
-- CORS-Origin-Beschränkung ist implementiert.
-- Löschung des eigenen Kontos ist vorhanden.
-- Datenschutzerklärung und Impressum sind verlinkt.
-- Keine Drittressourcen werden geladen.
+| Priorität | Bereich | Maßnahme |
+|-----------|---------|----------|
+| **Hoch**   | DSGVO | Log-Retention implementieren oder Datenschutzerklärung anpassen, um Widerspruch aufzulösen |
+| **Hoch**   | CRA    | SBOM erzeugen und bereitstellen |
+| **Mittel** | DSGVO | Self-Service-UI für Datenexport und Kontolöschung ergänzen (oder Text korrigieren) |
+| **Mittel** | DSGVO | Berichtigungsrecht praktisch ermöglichen (Self-Service oder dokumentierter Prozess) |
+| **Mittel** | CRA    | Schwachstellen-Scanning und Patch-Prozess in CI/`SECURITY.md` verankern |
+| **Mittel** | Pflichttexte | Impressum auf § 5 DDG aktualisieren |
+| **Mittel** | Barrierefreiheit | `scope`-Attribute für Tabellen; Farbkontraste prüfen und anpassen |
+| **Niedrig** | DSGVO/Sicherheit | User-Enumeration (Login deaktiviert) reduzieren; Rate-Limiting-Dokumentation |
+| **Niedrig** | CRA/Sicherheit | Token-Widerrufbarkeit dokumentieren oder verbessern |
 
-Die offenen Punkte betreffen insbesondere:
-- den unsicheren Standardwert für `JWT_SECRET`,
-- die unzureichend gesicherte Protokollierung unbehandelter Fehler,
-- ungenaue Rechtsgrundlagen und unvollständige Datenschutzerklärung,
-- fehlende SBOM/Sicherheitsdokumentation nach CRA,
-- ein Impressum mit Platzhaltern,
-- einige Barrierefreiheitslücken.
+**Hinweis zur Vereinbarkeit:** Alle vorgeschlagenen Maßnahmen müssen so umgesetzt werden, dass die bestehenden Produktfunktionen (Ticketverwaltung, Dashboard, CSV-Export, Authentifizierung) nicht beeinträchtigt werden. Insbesondere die Einführung von Log-Rotation oder SBOM-Generierung darf die Laufzeitumgebung nicht blockieren; die UI-Ergänzungen müssen die vorhandenen API-Endpunkte korrekt nutzen.
 
-Diese Punkte sind durch gezielte Änderungen in den genannten Dateien behebbar. Ein grundsätzlicher Stopp (BLOCKED) ist nicht erforderlich, weil keine personenbezogenen Daten ohne Rechtsgrundlage verarbeitet oder im Klartext gespeichert werden. Für eine Produktivbereitstellung sind die Critical-/High-Befunde vor dem Go-Live zu beheben.
+---
+
+**Gesamturteil:** Es bestehen keine fundamentalen, sofort blockierenden Rechtsverstöße (keine Klartext-Passwörter, keine unbefugte Datenverarbeitung, keine gesetzeswidrigen Praktiken). Die identifizierten Lücken sind behebbar und betreffen überwiegend die Konsistenz zwischen Datenschutzerklärung und Implementierung, die praktische Ausübung von Betroffenenrechten sowie CRA-Dokumentationspflichten. Daher: `CHANGES_REQUESTED`.
