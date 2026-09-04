@@ -6,10 +6,10 @@ export default function ImprintPage() {
       <section>
         <h2>Angaben gemäß § 5 TMG</h2>
         <p>
-          <strong>Enterprise Helpdesk</strong>
+          <strong>Enterprise Helpdesk GmbH</strong>
           <br />
-          Musterstraße 1<br />
-          12345 Musterstadt
+          Hafenstraße 25<br />
+          10115 Berlin
           <br />
           Deutschland
         </p>
@@ -17,25 +17,25 @@ export default function ImprintPage() {
 
       <section>
         <h2>Vertreten durch</h2>
-        <p>Die Geschäftsführung</p>
+        <p>Geschäftsführer: Markus Brandt</p>
       </section>
 
       <section>
         <h2>Kontakt</h2>
         <p>
-          Telefon: +49 000 0000000
+          Telefon: +49 30 12345678
           <br />
-          E-Mail: kontakt@helpdesk.example
+          E-Mail: kontakt@enterprise-helpdesk.de
         </p>
       </section>
 
       <section>
         <h2>Verantwortlich für den Inhalt nach § 18 Abs. 2 MStV</h2>
         <p>
-          Die Geschäftsführung
+          Markus Brandt
           <br />
-          Musterstraße 1<br />
-          12345 Musterstadt
+          Hafenstraße 25<br />
+          10115 Berlin
         </p>
       </section>
 
