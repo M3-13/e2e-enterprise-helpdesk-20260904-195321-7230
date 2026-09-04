@@ -160,6 +160,32 @@ def test_create_comment_requires_body(client, db_session):
     assert response.status_code == 422
 
 
+def test_requester_cannot_comment_on_foreign_ticket(client, db_session):
+    requester = _create_user(db_session, "melder")
+    other = _create_user(db_session, "anderer")
+    ticket = _create_ticket(db_session, other)
+
+    response = client.post(
+        f"/api/tickets/{ticket.id}/comments",
+        json={"body": "fremder Kommentar"},
+        headers=_headers(requester),
+    )
+    assert response.status_code == 404
+
+
+def test_agent_can_comment_on_foreign_ticket(client, db_session):
+    agent = _create_user(db_session, "agent1", role="agent")
+    requester = _create_user(db_session, "melder")
+    ticket = _create_ticket(db_session, requester)
+
+    response = client.post(
+        f"/api/tickets/{ticket.id}/comments",
+        json={"body": "Agenten-Kommentar"},
+        headers=_headers(agent),
+    )
+    assert response.status_code == 201
+
+
 def test_comment_on_missing_ticket_returns_404(client, db_session):
     requester = _create_user(db_session, "melder")
 

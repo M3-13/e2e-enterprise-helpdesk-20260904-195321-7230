@@ -19,6 +19,8 @@ def create_comment(
     ticket = db.get(Ticket, ticket_id)
     if ticket is None:
         raise HTTPException(status_code=404, detail="Ticket not found")
+    if current_user.role == "requester" and ticket.requester_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Ticket not found")
 
     comment = Comment(
         ticket_id=ticket.id,
