@@ -1,10 +1,20 @@
-import { useState, type FormEvent } from 'react'
+import { useState, type FormEvent, type KeyboardEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { ApiError } from '../api/client'
 import styles from './LoginPage.module.css'
 
 type Mode = 'login' | 'register'
+
+const TAB_IDS: Record<Mode, string> = {
+  login: 'auth-tab-login',
+  register: 'auth-tab-register',
+}
+
+const PANEL_IDS: Record<Mode, string> = {
+  login: 'auth-panel-login',
+  register: 'auth-panel-register',
+}
 
 interface ValidationError {
   loc?: (string | number)[]
@@ -46,6 +56,23 @@ export default function LoginPage({ initialMode = 'login' }: { initialMode?: Mod
     setFormError(null)
     setSuccessMessage(null)
     setFieldErrorsMap({})
+  }
+
+  const handleTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
+    const order: Mode[] = ['login', 'register']
+    const index = order.indexOf(mode)
+    let nextIndex = -1
+    if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+      nextIndex = (index + 1) % order.length
+    } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+      nextIndex = (index - 1 + order.length) % order.length
+    }
+    if (nextIndex >= 0) {
+      event.preventDefault()
+      const next = order[nextIndex]
+      switchMode(next)
+      document.getElementById(TAB_IDS[next])?.focus()
+    }
   }
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -118,18 +145,26 @@ export default function LoginPage({ initialMode = 'login' }: { initialMode?: Mod
           <button
             type="button"
             role="tab"
+            id={TAB_IDS.login}
             aria-selected={mode === 'login'}
+            aria-controls={PANEL_IDS.login}
+            tabIndex={mode === 'login' ? 0 : -1}
             className={`${styles.toggleButton}${mode === 'login' ? ` ${styles.toggleButtonActive}` : ''}`}
             onClick={() => switchMode('login')}
+            onKeyDown={handleTabKeyDown}
           >
             Anmelden
           </button>
           <button
             type="button"
             role="tab"
+            id={TAB_IDS.register}
             aria-selected={mode === 'register'}
+            aria-controls={PANEL_IDS.register}
+            tabIndex={mode === 'register' ? 0 : -1}
             className={`${styles.toggleButton}${mode === 'register' ? ` ${styles.toggleButtonActive}` : ''}`}
             onClick={() => switchMode('register')}
+            onKeyDown={handleTabKeyDown}
           >
             Registrieren
           </button>
@@ -148,7 +183,12 @@ export default function LoginPage({ initialMode = 'login' }: { initialMode?: Mod
         )}
 
         <form className={styles.form} onSubmit={handleSubmit} noValidate>
-          {mode === 'login' ? (
+          <div
+            role="tabpanel"
+            id={PANEL_IDS.login}
+            aria-labelledby={TAB_IDS.login}
+            hidden={mode !== 'login'}
+          >
             <div className={styles.field}>
               <label className={styles.label} htmlFor="login-username-or-email">
                 Benutzername oder E-Mail <span className={styles.required}>*</span>
@@ -161,50 +201,66 @@ export default function LoginPage({ initialMode = 'login' }: { initialMode?: Mod
                 onChange={(e) => setUsernameOrEmail(e.target.value)}
                 autoComplete="username"
                 aria-invalid={Boolean(fieldErrorsMap.username_or_email)}
+                aria-describedby={
+                  fieldErrorsMap.username_or_email ? 'login-username-or-email-error' : undefined
+                }
               />
               {fieldErrorsMap.username_or_email && (
-                <span className={styles.fieldError}>{fieldErrorsMap.username_or_email}</span>
+                <span id="login-username-or-email-error" className={styles.fieldError}>
+                  {fieldErrorsMap.username_or_email}
+                </span>
               )}
             </div>
-          ) : (
-            <>
-              <div className={styles.field}>
-                <label className={styles.label} htmlFor="register-username">
-                  Benutzername <span className={styles.required}>*</span>
-                </label>
-                <input
-                  id="register-username"
-                  className={`${styles.input}${fieldErrorsMap.username ? ` ${styles.invalid}` : ''}`}
-                  type="text"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  autoComplete="username"
-                  aria-invalid={Boolean(fieldErrorsMap.username)}
-                />
-                {fieldErrorsMap.username && (
-                  <span className={styles.fieldError}>{fieldErrorsMap.username}</span>
-                )}
-              </div>
+          </div>
 
-              <div className={styles.field}>
-                <label className={styles.label} htmlFor="register-email">
-                  E-Mail <span className={styles.required}>*</span>
-                </label>
-                <input
-                  id="register-email"
-                  className={`${styles.input}${fieldErrorsMap.email ? ` ${styles.invalid}` : ''}`}
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  autoComplete="email"
-                  aria-invalid={Boolean(fieldErrorsMap.email)}
-                />
-                {fieldErrorsMap.email && (
-                  <span className={styles.fieldError}>{fieldErrorsMap.email}</span>
-                )}
-              </div>
-            </>
-          )}
+          <div
+            role="tabpanel"
+            id={PANEL_IDS.register}
+            aria-labelledby={TAB_IDS.register}
+            hidden={mode !== 'register'}
+          >
+            <div className={styles.field}>
+              <label className={styles.label} htmlFor="register-username">
+                Benutzername <span className={styles.required}>*</span>
+              </label>
+              <input
+                id="register-username"
+                className={`${styles.input}${fieldErrorsMap.username ? ` ${styles.invalid}` : ''}`}
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                autoComplete="username"
+                aria-invalid={Boolean(fieldErrorsMap.username)}
+                aria-describedby={fieldErrorsMap.username ? 'register-username-error' : undefined}
+              />
+              {fieldErrorsMap.username && (
+                <span id="register-username-error" className={styles.fieldError}>
+                  {fieldErrorsMap.username}
+                </span>
+              )}
+            </div>
+
+            <div className={styles.field}>
+              <label className={styles.label} htmlFor="register-email">
+                E-Mail <span className={styles.required}>*</span>
+              </label>
+              <input
+                id="register-email"
+                className={`${styles.input}${fieldErrorsMap.email ? ` ${styles.invalid}` : ''}`}
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                autoComplete="email"
+                aria-invalid={Boolean(fieldErrorsMap.email)}
+                aria-describedby={fieldErrorsMap.email ? 'register-email-error' : undefined}
+              />
+              {fieldErrorsMap.email && (
+                <span id="register-email-error" className={styles.fieldError}>
+                  {fieldErrorsMap.email}
+                </span>
+              )}
+            </div>
+          </div>
 
           <div className={styles.field}>
             <label className={styles.label} htmlFor="login-password">
@@ -218,9 +274,12 @@ export default function LoginPage({ initialMode = 'login' }: { initialMode?: Mod
               onChange={(e) => setPassword(e.target.value)}
               autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
               aria-invalid={Boolean(fieldErrorsMap.password)}
+              aria-describedby={fieldErrorsMap.password ? 'login-password-error' : undefined}
             />
             {fieldErrorsMap.password && (
-              <span className={styles.fieldError}>{fieldErrorsMap.password}</span>
+              <span id="login-password-error" className={styles.fieldError}>
+                {fieldErrorsMap.password}
+              </span>
             )}
           </div>
 
