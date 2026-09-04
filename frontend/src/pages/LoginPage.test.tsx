@@ -64,6 +64,20 @@ describe('LoginPage', () => {
     expect(screen.getByLabelText('E-Mail *')).toBeInTheDocument()
   })
 
+  it('rendert jeweils nur das aktive Formular-Panel im DOM', async () => {
+    renderLogin()
+
+    expect(screen.getByLabelText('Benutzername oder E-Mail *')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Benutzername *')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('E-Mail *')).not.toBeInTheDocument()
+
+    await fireEvent.click(screen.getByRole('tab', { name: 'Registrieren' }))
+
+    expect(screen.queryByLabelText('Benutzername oder E-Mail *')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Benutzername *')).toBeInTheDocument()
+    expect(screen.getByLabelText('E-Mail *')).toBeInTheDocument()
+  })
+
   it('validiert leere Pflichtfelder beim Anmelden', async () => {
     renderLogin()
 

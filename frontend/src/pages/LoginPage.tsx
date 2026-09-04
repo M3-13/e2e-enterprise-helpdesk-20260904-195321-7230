@@ -183,12 +183,8 @@ export default function LoginPage({ initialMode = 'login' }: { initialMode?: Mod
         )}
 
         <form className={styles.form} onSubmit={handleSubmit} noValidate>
-          <div
-            role="tabpanel"
-            id={PANEL_IDS.login}
-            aria-labelledby={TAB_IDS.login}
-            hidden={mode !== 'login'}
-          >
+          {mode === 'login' && (
+            <div role="tabpanel" id={PANEL_IDS.login} aria-labelledby={TAB_IDS.login}>
             <div className={styles.field}>
               <label className={styles.label} htmlFor="login-username-or-email">
                 Benutzername oder E-Mail <span className={styles.required}>*</span>
@@ -211,14 +207,11 @@ export default function LoginPage({ initialMode = 'login' }: { initialMode?: Mod
                 </span>
               )}
             </div>
-          </div>
+            </div>
+          )}
 
-          <div
-            role="tabpanel"
-            id={PANEL_IDS.register}
-            aria-labelledby={TAB_IDS.register}
-            hidden={mode !== 'register'}
-          >
+          {mode === 'register' && (
+            <div role="tabpanel" id={PANEL_IDS.register} aria-labelledby={TAB_IDS.register}>
             <div className={styles.field}>
               <label className={styles.label} htmlFor="register-username">
                 Benutzername <span className={styles.required}>*</span>
@@ -261,6 +254,7 @@ export default function LoginPage({ initialMode = 'login' }: { initialMode?: Mod
               )}
             </div>
           </div>
+          )}
 
           <div className={styles.field}>
             <label className={styles.label} htmlFor="login-password">
