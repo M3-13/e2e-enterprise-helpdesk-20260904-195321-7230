@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, EmailStr
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 Role = Literal["requester", "agent", "admin"]
 Priority = Literal["low", "medium", "high", "critical"]
@@ -19,9 +19,9 @@ class UserOut(BaseModel):
 
 
 class UserCreate(BaseModel):
-    username: str
-    email: EmailStr
-    password: str
+    username: str = Field(max_length=255)
+    email: EmailStr = Field(max_length=255)
+    password: str = Field(min_length=8)
     role: Role = "requester"
 
 
@@ -31,9 +31,9 @@ class UserUpdate(BaseModel):
 
 
 class RegisterRequest(BaseModel):
-    username: str
-    email: EmailStr
-    password: str
+    username: str = Field(max_length=255)
+    email: EmailStr = Field(max_length=255)
+    password: str = Field(min_length=8)
 
 
 class LoginRequest(BaseModel):
@@ -48,16 +48,16 @@ class TokenResponse(BaseModel):
 
 
 class TicketCreate(BaseModel):
-    title: str
-    description: str
-    category: str
+    title: str = Field(max_length=255)
+    description: str = Field(max_length=5000)
+    category: str = Field(max_length=100)
     priority: Priority
 
 
 class TicketUpdate(BaseModel):
-    title: str | None = None
-    description: str | None = None
-    category: str | None = None
+    title: str | None = Field(default=None, max_length=255)
+    description: str | None = Field(default=None, max_length=5000)
+    category: str | None = Field(default=None, max_length=100)
     priority: Priority | None = None
     status: Status | None = None
 
@@ -67,7 +67,7 @@ class TicketAssign(BaseModel):
 
 
 class CommentCreate(BaseModel):
-    body: str
+    body: str = Field(max_length=5000)
 
 
 class CommentOut(BaseModel):
