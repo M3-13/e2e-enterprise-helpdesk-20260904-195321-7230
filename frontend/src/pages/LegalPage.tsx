@@ -22,7 +22,7 @@ export default function LegalPage() {
         <ul>
           <li>
             <strong>Kontodaten:</strong> Benutzername, E-Mail-Adresse und
-            (verschlüsselt gespeichertes) Passwort bei Registrierung und
+            (gehasht gespeichertes) Passwort bei Registrierung und
             Anmeldung.
           </li>
           <li>
