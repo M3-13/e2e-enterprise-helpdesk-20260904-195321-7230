@@ -1,0 +1,46 @@
+# Auto-generated ruff config. Adjust when a project needs to be stricter/looser.
+# office-crew-ruff: v3
+#
+# `src` is PINNED, and that is not cosmetic. Without it, ruff infers the
+# first-party source root from the directory it happens to run in, so the SAME
+# file is clean from one cwd and I001 from another: the fullstack CI lints from
+# `backend/` while a developer checking its work locally runs from the repo root.
+# Measured 2026-07-28 (OfficeCloset8 MR !6): `ruff check .` was clean in the
+# worktree and red in the pipeline on identical bytes, so "reproduce it locally"
+# could not reproduce it, and a correct, reviewed ticket was thrown away over an
+# import order. Listing the roots makes the verdict a property of the code.
+# Non-existent entries are ignored, so one list serves every generated layout.
+src = ["backend", "src", "."]
+target-version = "py313"
+line-length = 100
+
+[lint]
+select = [
+    "E", "W",      # pycodestyle
+    "F",           # pyflakes
+    "I",           # isort
+    "N",           # pep8-naming
+    "UP",          # pyupgrade
+    "B",           # flake8-bugbear (catches likely bugs)
+    "C4",          # comprehensions
+    "SIM",         # simplify (catches anti-patterns)
+    "RUF",         # ruff-specific
+]
+ignore = [
+    "E501",        # line too long — we leave that to the formatter
+    # B008: `Depends()`/`Query()`/`Body()`/`Security()` in a parameter
+    # default ARE the FastAPI idiom, so B008 fires on every idiomatic route. CI already
+    # ignores it (see RUFF_BLOCKING_IGNORE) — leaving it on HERE only made AGENTS.md's
+    # "`ruff check .` must be green" unreachable, while the developer's own rule forbids
+    # `# noqa`. Measured 2026-07-29 (OfficeCloset): 62 s on one ticket and 189 s on
+    # another spent chasing a finding the pipeline never blocked on. The local check and
+    # the blocking tier must ask the same question, or "reproduce it locally" is a lie.
+    "B008",
+]
+
+[lint.per-file-ignores]
+# `**/tests/**`, not `tests/*`: on a fullstack repo the tests live in
+# `backend/tests/`, which the old pattern never matched — so a test named
+# `test_GET_health` blocked the merge on a rule this line exists to relax.
+"**/tests/**" = ["N802", "N803"]
+"**/test_*.py" = ["N802", "N803"]
