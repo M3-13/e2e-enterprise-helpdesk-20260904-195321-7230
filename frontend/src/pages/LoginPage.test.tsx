@@ -65,7 +65,7 @@ describe('LoginPage', () => {
     expect(screen.getByRole('heading', { name: 'Anmelden' })).toBeInTheDocument()
     expect(screen.getByLabelText('Benutzername oder E-Mail *')).toBeInTheDocument()
 
-    await fireEvent.click(screen.getByRole('tab', { name: 'Registrieren' }))
+    await fireEvent.click(screen.getByRole('button', { name: 'Registrieren' }))
 
     expect(screen.getByRole('heading', { name: 'Registrieren' })).toBeInTheDocument()
     expect(screen.getByLabelText('Benutzername *')).toBeInTheDocument()
@@ -79,7 +79,7 @@ describe('LoginPage', () => {
     expect(screen.queryByLabelText('Benutzername *')).not.toBeInTheDocument()
     expect(screen.queryByLabelText('E-Mail *')).not.toBeInTheDocument()
 
-    await fireEvent.click(screen.getByRole('tab', { name: 'Registrieren' }))
+    await fireEvent.click(screen.getByRole('button', { name: 'Registrieren' }))
 
     expect(screen.queryByLabelText('Benutzername oder E-Mail *')).not.toBeInTheDocument()
     expect(screen.getByLabelText('Benutzername *')).toBeInTheDocument()
@@ -104,7 +104,7 @@ describe('LoginPage', () => {
     expect(screen.queryByLabelText('Benutzername *')).not.toBeInTheDocument()
     expect(screen.queryByLabelText('E-Mail *')).not.toBeInTheDocument()
 
-    await fireEvent.click(screen.getByRole('tab', { name: 'Registrieren' }))
+    await fireEvent.click(screen.getByRole('button', { name: 'Registrieren' }))
 
     expect(screen.getByLabelText('Benutzername *')).toBeInTheDocument()
     expect(screen.getByLabelText('E-Mail *')).toBeInTheDocument()
@@ -166,7 +166,7 @@ describe('LoginPage', () => {
 
     renderLogin()
 
-    await fireEvent.click(screen.getByRole('tab', { name: 'Registrieren' }))
+    await fireEvent.click(screen.getByRole('button', { name: 'Registrieren' }))
     await fireEvent.change(screen.getByLabelText('Benutzername *'), { target: { value: 'bob' } })
     await fireEvent.change(screen.getByLabelText('E-Mail *'), { target: { value: 'bob@example.com' } })
     await fireEvent.change(screen.getByLabelText('Passwort *'), { target: { value: 'geheim123' } })
