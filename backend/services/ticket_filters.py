@@ -48,7 +48,7 @@ def build_ticket_query(
         order = Ticket.created_at.desc()
 
     page = max(1, page)
-    page_size = min(max(1, page_size), 100)
+    page_size = max(1, page_size)
 
     items = query.order_by(order).offset((page - 1) * page_size).limit(page_size).all()
 

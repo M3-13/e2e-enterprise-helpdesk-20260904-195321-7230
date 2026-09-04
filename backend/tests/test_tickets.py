@@ -1,3 +1,5 @@
+import csv
+import io
 import os
 from datetime import datetime, timedelta
 
@@ -186,6 +188,17 @@ def test_list_tickets_page_size_is_capped_at_100(db):
     assert response.status_code == 200
     assert response.json()["total"] == 150
     assert len(response.json()["items"]) == 100
+
+
+def test_export_is_not_capped_by_page_size_limit(db):
+    requester = _create_user(db, "melder")
+    for i in range(150):
+        _create_ticket(db, requester, title=f"export {i}")
+
+    response = client.get("/api/tickets/export", headers=_headers(requester))
+    assert response.status_code == 200
+    rows = list(csv.reader(io.StringIO(response.text)))
+    assert len(rows) == 151
 
 
 def test_requester_does_not_see_foreign_ticket(db):

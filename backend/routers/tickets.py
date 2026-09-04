@@ -81,6 +81,7 @@ def list_tickets(
     db: Session = Depends(get_db),
 ) -> dict:
     requester_id = current_user.id if current_user.role == "requester" else None
+    page_size = min(max(1, page_size), 100)
     items, total = build_ticket_query(
         db,
         search=search,
