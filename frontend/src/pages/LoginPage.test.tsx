@@ -24,6 +24,14 @@ function renderLogin() {
   )
 }
 
+function submitButton(name: string): HTMLElement {
+  const button = screen
+    .getAllByRole('button', { name })
+    .find((el) => el.getAttribute('aria-pressed') === null)
+  if (!button) throw new Error(`Submit-Button "${name}" nicht gefunden`)
+  return button
+}
+
 describe('LoginPage', () => {
   beforeEach(() => {
     localStorage.clear()
@@ -57,7 +65,7 @@ describe('LoginPage', () => {
     expect(screen.getByRole('heading', { name: 'Anmelden' })).toBeInTheDocument()
     expect(screen.getByLabelText('Benutzername oder E-Mail *')).toBeInTheDocument()
 
-    await fireEvent.click(screen.getByRole('tab', { name: 'Registrieren' }))
+    await fireEvent.click(screen.getByRole('button', { name: 'Registrieren' }))
 
     expect(screen.getByRole('heading', { name: 'Registrieren' })).toBeInTheDocument()
     expect(screen.getByLabelText('Benutzername *')).toBeInTheDocument()
@@ -71,7 +79,7 @@ describe('LoginPage', () => {
     expect(screen.queryByLabelText('Benutzername *')).not.toBeInTheDocument()
     expect(screen.queryByLabelText('E-Mail *')).not.toBeInTheDocument()
 
-    await fireEvent.click(screen.getByRole('tab', { name: 'Registrieren' }))
+    await fireEvent.click(screen.getByRole('button', { name: 'Registrieren' }))
 
     expect(screen.queryByLabelText('Benutzername oder E-Mail *')).not.toBeInTheDocument()
     expect(screen.getByLabelText('Benutzername *')).toBeInTheDocument()
@@ -81,12 +89,26 @@ describe('LoginPage', () => {
   it('validiert leere Pflichtfelder beim Anmelden', async () => {
     renderLogin()
 
-    await fireEvent.click(screen.getByRole('button', { name: 'Anmelden' }))
+    await fireEvent.click(submitButton('Anmelden'))
 
     expect(
       await screen.findByText('Benutzername oder E-Mail ist erforderlich.'),
     ).toBeInTheDocument()
     expect(screen.getByText('Passwort ist erforderlich.')).toBeInTheDocument()
+  })
+
+  it('rendert zu jedem Zeitpunkt nur ein Formular ohne versteckte Felder', async () => {
+    renderLogin()
+
+    expect(screen.getByLabelText('Benutzername oder E-Mail *')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Benutzername *')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('E-Mail *')).not.toBeInTheDocument()
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Registrieren' }))
+
+    expect(screen.getByLabelText('Benutzername *')).toBeInTheDocument()
+    expect(screen.getByLabelText('E-Mail *')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Benutzername oder E-Mail *')).not.toBeInTheDocument()
   })
 
   it('meldet einen Benutzer an und speichert Token und Benutzer', async () => {
@@ -106,7 +128,7 @@ describe('LoginPage', () => {
 
     await fireEvent.change(screen.getByLabelText('Benutzername oder E-Mail *'), { target: { value: 'alice' } })
     await fireEvent.change(screen.getByLabelText('Passwort *'), { target: { value: 'geheim123' } })
-    await fireEvent.click(screen.getByRole('button', { name: 'Anmelden' }))
+    await fireEvent.click(submitButton('Anmelden'))
 
     expect(await screen.findByText('Dashboard-Seite')).toBeInTheDocument()
     expect(localStorage.getItem('token')).toBe('tok-123')
@@ -123,7 +145,7 @@ describe('LoginPage', () => {
 
     await fireEvent.change(screen.getByLabelText('Benutzername oder E-Mail *'), { target: { value: 'alice' } })
     await fireEvent.change(screen.getByLabelText('Passwort *'), { target: { value: 'falsch123' } })
-    await fireEvent.click(screen.getByRole('button', { name: 'Anmelden' }))
+    await fireEvent.click(submitButton('Anmelden'))
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Ungültiger Benutzername oder falsches Passwort.',
@@ -144,11 +166,11 @@ describe('LoginPage', () => {
 
     renderLogin()
 
-    await fireEvent.click(screen.getByRole('tab', { name: 'Registrieren' }))
+    await fireEvent.click(screen.getByRole('button', { name: 'Registrieren' }))
     await fireEvent.change(screen.getByLabelText('Benutzername *'), { target: { value: 'bob' } })
     await fireEvent.change(screen.getByLabelText('E-Mail *'), { target: { value: 'bob@example.com' } })
     await fireEvent.change(screen.getByLabelText('Passwort *'), { target: { value: 'geheim123' } })
-    await fireEvent.click(screen.getByRole('button', { name: 'Registrieren' }))
+    await fireEvent.click(submitButton('Registrieren'))
 
     expect(
       await screen.findByText('Registrierung erfolgreich. Bitte melde dich an.'),
