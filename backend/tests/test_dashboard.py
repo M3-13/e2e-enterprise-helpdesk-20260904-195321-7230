@@ -37,13 +37,22 @@ def client(db_session):
     def override_get_current_user():
         return db_session.get(User, 1)
 
+    saved = {
+        get_db: app.dependency_overrides.get(get_db),
+        get_current_user: app.dependency_overrides.get(get_current_user),
+    }
     app.dependency_overrides[get_db] = override_get_db
     app.dependency_overrides[get_current_user] = override_get_current_user
 
-    with TestClient(app) as c:
-        yield c
-
-    app.dependency_overrides.clear()
+    try:
+        with TestClient(app) as c:
+            yield c
+    finally:
+        for dep, original in saved.items():
+            if original is None:
+                app.dependency_overrides.pop(dep, None)
+            else:
+                app.dependency_overrides[dep] = original
 
 
 def make_ticket(
