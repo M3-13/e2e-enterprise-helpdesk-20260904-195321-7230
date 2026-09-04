@@ -1,3 +1,5 @@
+import os
+
 import pytest
 from fastapi import HTTPException, Request
 from fastapi.testclient import TestClient
@@ -7,6 +9,24 @@ from auth import get_current_user, require_role
 from db import Base
 from main import app
 from models import User
+
+
+@pytest.fixture(autouse=True)
+def _jwt_secret():
+    os.environ["JWT_SECRET"] = "x" * 64
+    yield
+
+
+def test_start_fails_without_jwt_secret():
+    os.environ.pop("JWT_SECRET", None)
+    with pytest.raises(RuntimeError), TestClient(app):
+        pass
+
+
+def test_start_fails_with_short_jwt_secret():
+    os.environ["JWT_SECRET"] = "short"
+    with pytest.raises(RuntimeError), TestClient(app):
+        pass
 
 
 def test_health_returns_200():

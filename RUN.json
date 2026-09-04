@@ -41,6 +41,11 @@
           "generate": "hex",
           "bytes": 32
         },
+        "TOKEN_EXPIRE_MINUTES": {
+          "dev": "30",
+          "not_secret": true,
+          "why": "JWT token lifetime in minutes; a plain tuning value, not a credential"
+        },
         "BACKEND_CORS_ORIGINS": {
           "dev": "http://localhost:5173"
         }

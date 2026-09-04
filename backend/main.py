@@ -8,6 +8,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from auth import _jwt_secret
 from db import create_all
 from routers import auth as auth_router
 from routers import comments as comments_router
@@ -46,6 +47,7 @@ def _cors_origins() -> list[str]:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     _configure_logging()
+    _jwt_secret()
     create_all()
     yield
 
@@ -56,8 +58,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins(),
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PATCH", "DELETE"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 
@@ -88,7 +90,9 @@ async def validation_exception_handler(
 
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
-    logging.getLogger("app").exception("unhandled error on %s %s", request.method, request.url.path)
+    logging.getLogger("app").error(
+        "unhandled %s %s %s", request.method, request.url.path, type(exc).__name__
+    )
     return JSONResponse(status_code=500, content={"detail": "Internal Server Error"})
 
 

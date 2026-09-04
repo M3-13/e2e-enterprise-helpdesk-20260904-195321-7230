@@ -15,7 +15,10 @@ _pwd_context = CryptContext(schemes=["bcrypt"], bcrypt__ident="2b", deprecated="
 
 
 def _jwt_secret() -> str:
-    return os.environ.get("JWT_SECRET", "")
+    secret = os.environ.get("JWT_SECRET", "")
+    if not secret or len(secret) < 32:
+        raise RuntimeError("JWT_SECRET is required and must be at least 32 characters")
+    return secret
 
 
 def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
@@ -68,7 +71,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 
 def create_access_token(user_id: int, role: str) -> str:
-    expire_minutes = int(os.environ.get("TOKEN_EXPIRE_MINUTES", "60"))
+    expire_minutes = int(os.environ.get("TOKEN_EXPIRE_MINUTES", "30"))
     now = datetime.now(UTC)
     payload = {
         "sub": str(user_id),
