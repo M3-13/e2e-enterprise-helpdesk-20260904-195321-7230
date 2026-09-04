@@ -34,6 +34,23 @@ describe('LoginPage', () => {
     vi.restoreAllMocks()
   })
 
+  it('startet über die /register-Route direkt im Registrierungsmodus', async () => {
+    render(
+      <MemoryRouter initialEntries={['/register']}>
+        <AuthProvider>
+          <Routes>
+            <Route path="/register" element={<LoginPage initialMode="register" />} />
+            <Route path="/dashboard" element={<div>Dashboard-Seite</div>} />
+          </Routes>
+        </AuthProvider>
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByRole('heading', { name: 'Registrieren' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Benutzername *')).toBeInTheDocument()
+    expect(screen.getByLabelText('E-Mail *')).toBeInTheDocument()
+  })
+
   it('wechselt zwischen Anmelden und Registrieren', async () => {
     renderLogin()
 

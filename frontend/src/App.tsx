@@ -15,6 +15,7 @@ export default function App() {
       <Route element={<Layout />}>
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<LoginPage initialMode="register" />} />
         <Route path="/tickets" element={<TicketListPage />} />
         <Route path="/tickets/new" element={<TicketNewPage />} />
         <Route path="/tickets/:id" element={<TicketDetailPage />} />

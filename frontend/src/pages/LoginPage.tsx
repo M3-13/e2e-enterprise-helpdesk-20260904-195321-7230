@@ -27,11 +27,11 @@ function fieldErrors(detail: unknown): Record<string, string> {
   return result
 }
 
-export default function LoginPage() {
+export default function LoginPage({ initialMode = 'login' }: { initialMode?: Mode }) {
   const { login, register } = useAuth()
   const navigate = useNavigate()
 
-  const [mode, setMode] = useState<Mode>('login')
+  const [mode, setMode] = useState<Mode>(initialMode)
   const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
   const [usernameOrEmail, setUsernameOrEmail] = useState('')
