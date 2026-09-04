@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
-import type { User } from '../types'
+import { apiPost, ApiError } from '../api/client'
+import type { LoginResponse, User } from '../types'
 
 interface AuthContextValue {
   user: User | null
@@ -30,6 +31,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(() => readStoredUser())
 
   const logout = (): void => {
+    apiPost<void>('/api/auth/logout').catch(() => {
+      // Best effort: the session is cleared locally regardless of the server response.
+    })
     localStorage.removeItem(TOKEN_KEY)
     localStorage.removeItem(USER_KEY)
     setToken(null)
@@ -45,12 +49,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('auth:logout', handleLogout)
   }, [])
 
-  const login = async (_usernameOrEmail: string, _password: string): Promise<void> => {
-    throw new Error('Anmeldung ist noch nicht implementiert.')
+  const login = async (usernameOrEmail: string, password: string): Promise<void> => {
+    try {
+      const response = await apiPost<LoginResponse>('/api/auth/login', {
+        username_or_email: usernameOrEmail,
+        password,
+      })
+      localStorage.setItem(TOKEN_KEY, response.access_token)
+      localStorage.setItem(USER_KEY, JSON.stringify(response.user))
+      setToken(response.access_token)
+      setUser(response.user)
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) {
+        throw new ApiError(401, 'Ungültiger Benutzername oder falsches Passwort.')
+      }
+      throw error
+    }
   }
 
-  const register = async (_username: string, _email: string, _password: string): Promise<void> => {
-    throw new Error('Registrierung ist noch nicht implementiert.')
+  const register = async (username: string, email: string, password: string): Promise<void> => {
+    await apiPost<User>('/api/auth/register', {
+      username,
+      email,
+      password,
+    })
   }
 
   const value: AuthContextValue = {
